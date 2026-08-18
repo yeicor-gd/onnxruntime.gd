@@ -1,38 +1,72 @@
-# OpenCASCADE.gd
+# ONNXRuntime.gd
 
-This project provides a GDExtension wrapper for [OpenCASCADE Technology](https://github.com/Open-Cascade-SAS/OCCT) in the Godot Engine.
+This project provides an automatic high-performance GDExtension wrapper for **Microsoft ONNX Runtime** in the Godot Engine.
 
 ## Features
 
-- **Cross-Platform Support**: Runs on desktop (Windows, macOS, Linux), mobile (Android, iOS), and web (threads, no threads) platforms.
-- **Demo Project**: includes [demo scene](demo/) to get you started quickly.
-- **High Performance**: leverages C++ for optimized performance and low-level access.
-- **Easy Integration**: drop-in [GDExtension](https://docs.godotengine.org/en/stable/tutorials/scripting/gdextension/index.html) with simple Godot API bindings.
-- **Automated Builds**: uses GitHub Actions for continuous integration, including tests and prebuilt binaries.
-- **Dependency Management**: integrated [VCPKG](https://github.com/microsoft/vcpkg) for hassle-free library management.
+- **Full ONNX Runtime C++ API Support**: Automatically generated bindings exposing environments (`OrtEnv`), session options (`OrtSessionOptions`), run options (`OrtRunOptions`), memory info (`OrtMemoryInfo`), model metadata, tensor info, and more.
+- **High-Level Adapters (`OrtAdapters`)**: Idiomatic GDScript helpers for:
+  - Creating and loading sessions from file paths or in-memory buffers
+  - Inspecting input and output tensor names, types, and shapes
+  - Creating tensor `OrtValue` objects from GDScript `PackedFloat32Array`, `PackedInt32Array`, `PackedInt64Array`, and `PackedByteArray`
+  - Running model inference with dictionary input/output mapping
+  - Querying available execution providers (CPU, CUDA, TensorRT, CoreML, DirectML, etc.)
+- **Error Handling (`OrtErrors`)**: Diagnostic helpers for inspecting last error messages, error codes, and clearing error state.
+- **Cross-Platform Support**: Desktop (Linux, Windows, macOS), mobile (Android, iOS), and web.
+- **Demo & Tests**: Interactive demo scene (`demo/demo/demo.tscn`) and automated test suites (`demo/tests/`).
+- **Dependency Management**: Integrated with [vcpkg](https://github.com/microsoft/vcpkg) for reproducible builds.
 
 ## Quick Start
 
-1. **Download**: [latest release](https://github.com/yeicor-gd/OpenCASCADE.gd/releases) or [nightly builds](https://github.com/yeicor-gd/OpenCASCADE.gd/actions) (look for `...-addon.zip`).
-2. **Extract**: the downloaded `...-addon.zip` into your project's root.
-3. **Profit**: see [demo/tests](demo/tests) for examples.
+### 1. Basic Instantiation & Session Creation
 
-## License warning
+```gdscript
+# Create environment and session options
+var env = OrtEnv.new()
+var session_opts = OrtSessionOptions.new()
+session_opts.set_intra_op_num_threads(2)
 
-> Open CASCADE Technology version 6.7.0 and later are governed by GNU Lesser
-> General Public License (LGPL) version 2.1 with additional exception.
+# Load ONNX model
+var model_path = ProjectSettings.globalize_path("res://models/test_model.onnx")
+var session = OrtAdapters.create_session(env, model_path, session_opts)
 
-The OCCT libraries are compiled statically into the addon's prebuilt binaries
-(see [demo/addons/OpenCASCADE.gd/](demo/addons/OpenCASCADE.gd/)). If you
-distribute the addon, the LGPL 2.1 obligations (including making the source
-available and allowing users to relink the OCCT libraries) apply to the parts
-derived from OCCT. Building the addon from source is the easiest way
-to satisfy the corresponding source/relinking requirements.
+# Inspect inputs & outputs
+var input_names = OrtAdapters.get_input_names(session)   # ["X"]
+var output_names = OrtAdapters.get_output_names(session) # ["Y"]
+```
 
-## Using this project as a template for other GDExtensions
+### 2. Tensor Creation & Inference
 
-1. **Rename the Project**: update `project({old-name} CXX)` in [CMakeLists.txt](CMakeLists.txt), and rename [demo/addons/{old-name}/](demo/addons/OpenCASCADE.gd) to match your new addon name.
-2. **Update Dependencies**: modify [vcpkg_ports/gdext/vcpkg.json](vcpkg_ports/gdext/vcpkg.json) to include your required libraries, and link them in [CMakeLists.txt](CMakeLists.txt) following VCPKG instructions.
-3. **Customize Builds**: edit [vcpkg_ports/](vcpkg_ports/) and [vcpkg_triplets/](vcpkg_triplets/) as needed to ensure compatibility across platforms.
-4. **Implement Your Logic**: add your C++ bindings in [src/](src/), document classes in [doc_classes/](doc_classes/), and create tests/demos in [demo/](demo/) (refer to existing examples).
-5. **Update Metadata**: replace placeholders in this README with your project's details and links.
+```gdscript
+# Prepare input tensor: shape [1, 3] with data [1.0, 2.0, 3.0]
+var input_data := PackedFloat32Array([1.0, 2.0, 3.0])
+var input_shape := PackedInt64Array([1, 3])
+var in_val = OrtAdapters.create_tensor_float32(input_data, input_shape)
+
+# Run inference
+var inputs = { "X": in_val }
+var outputs = OrtAdapters.run_inference(session, inputs, PackedStringArray(["Y"]))
+
+# Retrieve output
+if outputs.has("Y"):
+    var out_tensor = outputs["Y"]
+    var out_shape = OrtAdapters.get_tensor_shape(out_tensor)
+    var out_data = OrtAdapters.get_tensor_data_float32(out_tensor)
+    print("Inference result: ", out_data)
+```
+
+## Building from Source
+
+```bash
+# 1. Install dependencies via vcpkg
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DGODOTCPP_TARGET=template_debug
+cmake --build build -j$(nproc)
+cmake --install build
+
+# 2. Run automated validation tests
+GODOT_VERSION=system ./validate.sh
+```
+
+## License
+
+ONNX Runtime is licensed under the MIT License.

@@ -4,6 +4,6 @@
 [submodule "vcpkg"]
 	path = vcpkg
 	url = git@github.com:microsoft/vcpkg.git
-[submodule "OpenCASCADE.gd-autowrapper"]
-	path = OpenCASCADE.gd-autowrapper
-	url = git@github.com:yeicor/OpenCASCADE.gd-autowrapper.git
+[submodule "ONNXRuntime.gd-autowrapper"]
+	path = ONNXRuntime.gd-autowrapper
+	url = git@github.com:yeicor/ONNXRuntime.gd-autowrapper.git

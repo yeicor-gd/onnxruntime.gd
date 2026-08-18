@@ -389,6 +389,9 @@ func _run_test(script: Object, method: String) -> String:
 			else:
 				return result
 
+		TYPE_NIL:
+			return ""
+
 		_:
 			return "Invalid return type: expected \"OK\" or error String"
 

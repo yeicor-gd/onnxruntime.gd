@@ -1,5 +1,5 @@
-#ifndef OPENCASCADE_GD_REGISTER_TYPES_H
-#define OPENCASCADE_GD_REGISTER_TYPES_H
+#ifndef ONNXRUNTIME_GD_REGISTER_TYPES_H
+#define ONNXRUNTIME_GD_REGISTER_TYPES_H
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/class_db.hpp>
@@ -8,4 +8,4 @@
 
 using namespace godot;
 
-#endif // OPENCASCADE_GD_REGISTER_TYPES_H
+#endif // ONNXRUNTIME_GD_REGISTER_TYPES_H

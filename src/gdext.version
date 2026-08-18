@@ -1,0 +1,6 @@
+{
+    global:
+        gdext_library_init;
+    local:
+        *;
+};
