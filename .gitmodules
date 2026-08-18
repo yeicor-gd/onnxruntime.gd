@@ -4,6 +4,6 @@
 [submodule "vcpkg"]
 	path = vcpkg
 	url = git@github.com:microsoft/vcpkg.git
-[submodule "ONNXRuntime.gd-autowrapper"]
-	path = ONNXRuntime.gd-autowrapper
-	url = git@github.com:yeicor/ONNXRuntime.gd-autowrapper.git
+[submodule "onnxruntime.gd-autowrapper"]
+	path = onnxruntime.gd-autowrapper
+	url = git@github.com:yeicor/onnxruntime.gd-autowrapper.git
