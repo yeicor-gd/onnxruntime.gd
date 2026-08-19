@@ -21,11 +21,11 @@ compile_commands.json
 
 # Prebuilt GDExtension library files (downloaded by the editor plugin from GitHub Actions).
 # Ignored exhaustively: the addon only ships sources + config, binaries come from CI.
-demo/addons/OpenCASCADE.gd/*.so
-demo/addons/OpenCASCADE.gd/*.so.*
-demo/addons/OpenCASCADE.gd/*.dll
-demo/addons/OpenCASCADE.gd/*.dylib
-demo/addons/OpenCASCADE.gd/*.wasm
-demo/addons/OpenCASCADE.gd/*.pdb
+demo/addons/onnxruntime.gd/*.so
+demo/addons/onnxruntime.gd/*.so.*
+demo/addons/onnxruntime.gd/*.dll
+demo/addons/onnxruntime.gd/*.dylib
+demo/addons/onnxruntime.gd/*.wasm
+demo/addons/onnxruntime.gd/*.pdb
 
 .build-autowrapper/

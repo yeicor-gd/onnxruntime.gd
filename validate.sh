@@ -39,6 +39,13 @@ fi
 # For wasm32-emscripten builds, export CFLAGS/CXXFLAGS so that ALL vcpkg
 # dependency ports compile with the flags needed for a SIDE_MODULE build.
 if [ "$VCPKG_DEFAULT_TRIPLET" = "wasm32-emscripten" ]; then
+    if ! command -v emcc &>/dev/null; then
+        if [ -f "$HOME/.local/emsdk/emsdk_env.sh" ]; then
+            source "$HOME/.local/emsdk/emsdk_env.sh" >/dev/null 2>&1
+        elif [ -f "/usr/lib/emsdk/emsdk_env.sh" ]; then
+            source "/usr/lib/emsdk/emsdk_env.sh" >/dev/null 2>&1
+        fi
+    fi
     export CFLAGS="-fPIC -sSUPPORT_LONGJMP=wasm -fwasm-exceptions -matomics -mbulk-memory"
     export CXXFLAGS="$CFLAGS"
 fi

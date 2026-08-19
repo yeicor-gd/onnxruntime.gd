@@ -1,3 +1,29 @@
+diff --git a/cmake/adjust_global_compile_flags.cmake b/cmake/adjust_global_compile_flags.cmake
+index 6d51700..cd82cbe 100644
+--- a/cmake/adjust_global_compile_flags.cmake
++++ b/cmake/adjust_global_compile_flags.cmake
+@@ -45,7 +45,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+     string(APPEND CMAKE_CXX_FLAGS " -msimd128")
+   endif()
+ 
+-  if (onnxruntime_ENABLE_WEBASSEMBLY_EXCEPTION_CATCHING)
++  if (onnxruntime_ENABLE_WEBASSEMBLY_EXCEPTION_CATCHING AND NOT CMAKE_CXX_FLAGS MATCHES "-fwasm-exceptions")
+     string(APPEND CMAKE_C_FLAGS " -s DISABLE_EXCEPTION_CATCHING=0")
+     string(APPEND CMAKE_CXX_FLAGS " -s DISABLE_EXCEPTION_CATCHING=0")
+   endif()
+diff --git a/cmake/external/abseil-cpp.cmake b/cmake/external/abseil-cpp.cmake
+index eede60a..185cbaf 100644
+--- a/cmake/external/abseil-cpp.cmake
++++ b/cmake/external/abseil-cpp.cmake
+@@ -122,7 +122,7 @@ absl::absl_check
+ absl::hash_function_defaults
+ absl::function_ref
+ absl::city
+-absl::low_level_hash
++# absl::low_level_hash
+ absl::fixed_array
+ absl::variant
+ absl::meta
 diff --git a/cmake/onnxruntime_framework.cmake b/cmake/onnxruntime_framework.cmake
 index 15f3105..af6609b 100644
 --- a/cmake/onnxruntime_framework.cmake
@@ -9,21 +35,8 @@ index 15f3105..af6609b 100644
 -            FRAMEWORK DESTINATION ${CMAKE_INSTALL_BINDIR})
 +            FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR})
  endif()
-diff --git a/cmake/external/abseil-cpp.cmake b/cmake/external/abseil-cpp.cmake
-index eede60a..07f5f77 100644
---- a/cmake/external/abseil-cpp.cmake
-+++ b/cmake/external/abseil-cpp.cmake
-@@ -122,7 +122,7 @@ absl::absl_check
- absl::hash_function_defaults
- absl::function_ref
- absl::city
--absl::low_level_hash
-+# absl::low_level_hash # abseil 20250814.1+
- absl::fixed_array
- absl::variant
- absl::meta
 diff --git a/cmake/onnxruntime_webassembly.cmake b/cmake/onnxruntime_webassembly.cmake
-index ffe8661..a3e9b4f 100644
+index ffe8661..318b84f 100644
 --- a/cmake/onnxruntime_webassembly.cmake
 +++ b/cmake/onnxruntime_webassembly.cmake
 @@ -94,7 +94,7 @@ if (NOT onnxruntime_ENABLE_WEBASSEMBLY_THREADS)
@@ -35,3 +48,24 @@ index ffe8661..a3e9b4f 100644
  endif()
  
  if (NOT onnxruntime_USE_VCPKG)
+@@ -305,7 +305,7 @@ else()
+           #       However, it may be very slow.
+           # "SHELL:-s ASSERTIONS=2"
+           "SHELL:-s ASSERTIONS=1"
+-          "SHELL:-s SAFE_HEAP=1"
++          "SHELL:-s SAFE_HEAP=0"
+           "SHELL:-s STACK_OVERFLOW_CHECK=2"
+         )
+     endif()
+@@ -325,8 +325,9 @@ else()
+     endif()
+   endif()
+ 
+-  # Set link flag to enable exceptions support, this will override default disabling exception throwing behavior when disable exceptions.
+-  target_link_options(onnxruntime_webassembly PRIVATE "SHELL:-s DISABLE_EXCEPTION_THROWING=0")
++  if (NOT CMAKE_CXX_FLAGS MATCHES "-fwasm-exceptions")
++    target_link_options(onnxruntime_webassembly PRIVATE "SHELL:-s DISABLE_EXCEPTION_THROWING=0")
++  endif()
+ 
+   if (onnxruntime_ENABLE_WEBASSEMBLY_PROFILING)
+     target_link_options(onnxruntime_webassembly PRIVATE --profiling --profiling-funcs)
