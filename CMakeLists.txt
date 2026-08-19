@@ -84,7 +84,7 @@ if(NOT onnxruntime_FOUND)
 endif()
 
 # Regenerate the ONNX Runtime autowrapper bindings at configure time when needed
-set(AUTOWRAPPER_DIR "${PROJECT_SOURCE_DIR}/ONNXRuntime.gd-autowrapper")
+set(AUTOWRAPPER_DIR "${PROJECT_SOURCE_DIR}/onnxruntime.gd-autowrapper")
 set(AUTOWRAPPER_STAMP "${PROJECT_SOURCE_DIR}/src/autowrapper/.autowrapper-stamp")
 set(AUTOWRAPPER_NEED_REGEN FALSE)
 if (NOT EXISTS "${AUTOWRAPPER_STAMP}")
@@ -217,6 +217,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     "-Wl,-Bsymbolic"
     "-Wl,-Bsymbolic-functions"
     "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/gdext.version"
+    "-Wl,-rpath,$ORIGIN"
     "-static-libstdc++"
     "-static-libgcc"
   )
@@ -231,9 +232,6 @@ else()
   target_link_libraries(${PROJECT_NAME} PRIVATE godot-cpp ${ONNXRUNTIME_LIBRARIES})
 endif()
 
-if(TARGET onnx AND TARGET onnx_proto)
-  target_link_libraries(${PROJECT_NAME} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,onnx,onnx_proto>")
-endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 find_path(ONNXRUNTIME_INCLUDE_DIR NAMES onnxruntime_cxx_api.h PATH_SUFFIXES onnxruntime onnxruntime/core/session)
@@ -322,11 +320,40 @@ set(OUTPUT_NAME "gdext${GODOTCPP_SUFFIX}")
 if (MINGW)
   set(OUTPUT_NAME "gdext${GODOTCPP_SUFFIX}.mingw")
 endif()
-set(INSTALL_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/demo/addons/${PROJECT_NAME}")
+set(INSTALL_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/demo/addons/onnxruntime.gd")
 message("Will install shared library to: ${INSTALL_FOLDER}")
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${OUTPUT_NAME}")
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "lib")
+set_target_properties(${PROJECT_NAME} PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "$ORIGIN")
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION "${INSTALL_FOLDER}")
+
+# Copy & install ONNX Runtime provider shared libraries (e.g. CUDA / shared providers)
+if(DEFINED CMAKE_PREFIX_PATH)
+  file(GLOB ONNXRUNTIME_PROVIDER_LIBS
+    "${CMAKE_PREFIX_PATH}/lib/libonnxruntime_providers_*"
+    "${CMAKE_PREFIX_PATH}/bin/onnxruntime_providers_*"
+  )
+endif()
+if(NOT ONNXRUNTIME_PROVIDER_LIBS)
+  file(GLOB ONNXRUNTIME_PROVIDER_LIBS
+    "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/installed/*/lib/libonnxruntime_providers_*"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/installed/*/debug/lib/libonnxruntime_providers_*"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/installed/*/bin/onnxruntime_providers_*"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/installed/*/debug/bin/onnxruntime_providers_*"
+  )
+endif()
+if(ONNXRUNTIME_PROVIDER_LIBS)
+  message(STATUS "Found ONNX Runtime provider libraries: ${ONNXRUNTIME_PROVIDER_LIBS}")
+  install(FILES ${ONNXRUNTIME_PROVIDER_LIBS} DESTINATION "${INSTALL_FOLDER}")
+  add_custom_command(
+    TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${ONNXRUNTIME_PROVIDER_LIBS}
+            "${INSTALL_FOLDER}/"
+    COMMENT "Copying ONNX Runtime provider libraries..."
+    VERBATIM
+  )
+endif()
 
 # Post-build: repair Emscripten wasm validation bugs
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")

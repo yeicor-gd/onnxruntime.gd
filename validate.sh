@@ -71,8 +71,21 @@ if [ "$DO_BUILD" = "1" ] || [ "$DO_BUILD" = "true" ]; then
 
     BUILD_LOG=$(mktemp)
 
+    if [ ! -f build/CMakeCache.txt ]; then
+        echo "Configuring build directory..."
+        cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            $GDEXT_CMAKE_ARGS 2>&1 | tee "$BUILD_LOG"
+        CONFIGURE_EXIT=${PIPESTATUS[0]}
+        if [ $CONFIGURE_EXIT -ne 0 ]; then
+            echo "Configure failed!"
+            exit 1
+        fi
+    fi
+
     echo "Building extension..."
-    cmake --build build -j$(nproc) 2>&1 | tee "$BUILD_LOG"
+    cmake --build build -j$(nproc) 2>&1 | tee -a "$BUILD_LOG"
     cmake --install build 2>&1 | tee -a "$BUILD_LOG"
     BUILD_EXIT=${PIPESTATUS[0]}
 
@@ -83,7 +96,7 @@ if [ "$DO_BUILD" = "1" ] || [ "$DO_BUILD" = "true" ]; then
 
     echo "Build succeeded! Running runtime validation..."
 
-    EXT_LIB="$(ls "$SCRIPT_DIR"/demo/addons/ONNXRuntime.gd/libgdext*.so 2>/dev/null | head -1)"
+    EXT_LIB="$(ls "$SCRIPT_DIR"/demo/addons/onnxruntime.gd/libgdext*.so 2>/dev/null | head -1)"
     if [ -n "$EXT_LIB" ]; then
         UNDEF=$(nm -D --undefined-only "$EXT_LIB" 2>/dev/null | c++filt | \
                 grep -E "[A-Z][A-Za-z0-9_]*::" | \
@@ -164,6 +177,7 @@ RUNTIME_LOG=$(mktemp)
 trap "rm -f '${BUILD_LOG:-}' '${GODOT_BUILD_LOG:-}' '$IMPORT_LOG' '$RUNTIME_LOG'" EXIT
 
 # Set up environment variables for running Godot
+export LD_LIBRARY_PATH="/opt/cuda/lib64:/opt/cuda/targets/x86_64-linux/lib:$SCRIPT_DIR/demo/addons/onnxruntime.gd:$SCRIPT_DIR/vcpkg/installed/x64-linux/lib:$SCRIPT_DIR/vcpkg/installed/x64-linux/debug/lib:${LD_LIBRARY_PATH:-}"
 if [ "$GODOT_VERSION" != "system" ]; then
     export LD_PRELOAD="$(gcc -print-file-name=libasan.so)"
     export LSAN_OPTIONS=detect_leaks=0

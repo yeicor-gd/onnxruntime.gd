@@ -26,7 +26,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/ONNXRuntime.gd/plugin.cfg")
+enabled=PackedStringArray("res://addons/onnxruntime.gd/plugin.cfg")
 
 [rendering]
 

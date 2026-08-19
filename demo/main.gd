@@ -28,10 +28,10 @@ func _show_license_hint() -> void:
 	panel.add_child(margin)
 
 	var label := Label.new()
-	label.text = "This addon statically links Open CASCADE Technology 6.7.0+, "
-	label.text += "which is governed by the GNU Lesser General Public License (LGPL) version 2.1 "
-	label.text += "with additional exception. You can rebuild it from the sources at "
-	label.text += "https://github.com/yeicor-gd/OpenCASCADE.gd."
+	label.text = "This addon uses Microsoft ONNX Runtime 1.23.2, "
+	label.text += "which is governed by the MIT License. "
+	label.text += "You can build it from sources at "
+	label.text += "https://github.com/yeicor-gd/onnxruntime.gd."
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(label)
@@ -65,8 +65,8 @@ func _show_web_hint() -> void:
 	vb.add_child(info)
 
 	var link := LinkButton.new()
-	link.text = "https://github.com/yeicor-gd/OpenCASCADE.gd/actions"
-	link.uri = "https://github.com/yeicor-gd/OpenCASCADE.gd/actions"
+	link.text = "https://github.com/yeicor-gd/onnxruntime.gd/actions"
+	link.uri = "https://github.com/yeicor-gd/onnxruntime.gd/actions"
 	vb.add_child(link)
 
 	add_child(panel)
