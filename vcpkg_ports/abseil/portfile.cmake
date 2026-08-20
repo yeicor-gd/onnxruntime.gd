@@ -12,6 +12,7 @@ vcpkg_from_github(
         003-force-cxx-17.patch
         fix-gcc13-constexpr-function-pointer.patch
         fix-gcc16-cuda.patch
+        fix-mingw-time-zone.patch
 )
 
 

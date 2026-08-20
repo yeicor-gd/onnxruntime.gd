@@ -35,7 +35,7 @@ index 15f3105..af6609b 100644
 -            FRAMEWORK DESTINATION ${CMAKE_INSTALL_BINDIR})
 +            FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR})
  endif()
-diff --git a/cmake/onnxruntime.cmake b/cmake/onnxruntime.cmake
+ diff --git a/cmake/onnxruntime.cmake b/cmake/onnxruntime.cmake
 index 010696a..078725b 100644
 --- a/cmake/onnxruntime.cmake
 +++ b/cmake/onnxruntime.cmake
@@ -48,6 +48,19 @@ index 010696a..078725b 100644
  
  
  if (WIN32 AND NOT CMAKE_CXX_STANDARD_LIBRARIES MATCHES kernel32.lib)
+diff --git a/cmake/onnxruntime_mlas.cmake b/cmake/onnxruntime_mlas.cmake
+index 3530ab0..c3292cb 100644
+--- a/cmake/onnxruntime_mlas.cmake
++++ b/cmake/onnxruntime_mlas.cmake
+@@ -791,7 +791,7 @@ if (WIN32)
+ endif()
+ 
+ if (NOT onnxruntime_BUILD_SHARED_LIB)
+-    install(TARGETS onnxruntime_mlas EXPORT ${PROJECT_NAME}Targets
++    install(TARGETS ${ONNXRUNTIME_MLAS_LIBS} EXPORT ${PROJECT_NAME}Targets
+             ARCHIVE   DESTINATION ${CMAKE_INSTALL_LIBDIR}
+             LIBRARY   DESTINATION ${CMAKE_INSTALL_LIBDIR}
+             RUNTIME   DESTINATION ${CMAKE_INSTALL_BINDIR}
 diff --git a/cmake/onnxruntime_webassembly.cmake b/cmake/onnxruntime_webassembly.cmake
 index ffe8661..318b84f 100644
 --- a/cmake/onnxruntime_webassembly.cmake
@@ -82,3 +95,16 @@ index ffe8661..318b84f 100644
  
    if (onnxruntime_ENABLE_WEBASSEMBLY_PROFILING)
      target_link_options(onnxruntime_webassembly PRIVATE --profiling --profiling-funcs)
+diff --git a/onnxruntime/core/session/utils.cc b/onnxruntime/core/session/utils.cc
+index a1b2c3d..e4f5a6b 100644
+--- a/onnxruntime/core/session/utils.cc
++++ b/onnxruntime/core/session/utils.cc
+@@ -415,7 +415,7 @@ Status LoadPluginOrProviderBridge(const std::string& registration_name,
+                                                             true,
+                                                             ProviderLibraryPathType::Absolute);
+   bool is_provider_bridge = provider_library->Load() == Status::OK();  // library has GetProvider
+-  LOGS_DEFAULT(INFO) << "Loading EP library: " << library_path
++  LOGS_DEFAULT(INFO) << "Loading EP library: " << resolved_library_path
+                      << (is_provider_bridge ? " as a provider bridge" : " as a plugin");
+ 
+   // create EpLibraryPlugin to ensure CreateEpFactories and ReleaseEpFactory are available

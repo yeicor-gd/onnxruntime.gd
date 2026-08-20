@@ -1,0 +1,10 @@
+diff --git a/absl/time/internal/cctz/src/time_zone_info.cc b/absl/time/internal/cctz/src/time_zone_info.cc
+--- a/absl/time/internal/cctz/src/time_zone_info.cc
++++ b/absl/time/internal/cctz/src/time_zone_info.cc
+@@ -404,5 +404,5 @@
+ inline FilePtr FOpen(const char* path) {
+-#if defined(_MSC_VER)
++#if defined(_WIN32)
+   FILE* fp;
+   if (fopen_s(&fp, path, "rb") != 0) fp = nullptr;
+   return FilePtr(fp, fclose);

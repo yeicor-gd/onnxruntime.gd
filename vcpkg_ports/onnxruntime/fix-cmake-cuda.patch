@@ -34,7 +34,7 @@ index 91707c4..4fdaa8d 100644
    if(WIN32)
      # FILE_NAME preprocessor definition is used in onnxruntime_providers_cuda.rc
      target_compile_definitions(onnxruntime_providers_cuda PRIVATE FILE_NAME=\"onnxruntime_providers_cuda.dll\")
-@@ -237,12 +241,12 @@
+@@ -237,12 +241,13 @@
            message( WARNING "To compile with NHWC ops enabled please compile against cuDNN 9 or newer." )
          endif()
        endif()
@@ -45,6 +45,7 @@ index 91707c4..4fdaa8d 100644
  
 -    include(cutlass)
 -    target_include_directories(${target} PRIVATE ${cutlass_SOURCE_DIR}/include ${cutlass_SOURCE_DIR}/examples ${cutlass_SOURCE_DIR}/tools/util/include)
++    target_compile_definitions(${target} PRIVATE PROTOBUF_USE_DLLS)
 +    find_package(NvidiaCutlass REQUIRED)
 +    target_link_libraries(${target} PRIVATE nvidia::cutlass::cutlass nvidia::cutlass::tools::util)
      target_link_libraries(${target} PRIVATE Eigen3::Eigen)
