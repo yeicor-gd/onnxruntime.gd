@@ -402,7 +402,7 @@ jobs:
           VCPKG_MAX_CONCURRENCY=$NCORES
           echo "VCPKG_MAX_CONCURRENCY=$VCPKG_MAX_CONCURRENCY" >> $GITHUB_ENV
           # ---
-          echo "VCPKG_KEEP_ENV_VARS=VCPKG_MAX_CONCURRENCY;CCACHE_DIR;CCACHE_COMPILERCHECK;CCACHE_SLOPPINESS;CCACHE_FILESTATMATCHES;CMAKE_CXX_COMPILER_LAUNCHER;CMAKE_C_COMPILER_LAUNCHER;LIBCLANG_LIBRARY_FILE;PYTHON" >> $GITHUB_ENV
+          echo "VCPKG_KEEP_ENV_VARS=VCPKG_MAX_CONCURRENCY;CCACHE_DIR;CCACHE_COMPILERCHECK;CCACHE_SLOPPINESS;CCACHE_FILESTATMATCHES;CMAKE_CXX_COMPILER_LAUNCHER;CMAKE_C_COMPILER_LAUNCHER;LIBCLANG_LIBRARY_FILE;PYTHON;CUDA_PATH;CUDA_HOME" >> $GITHUB_ENV
           echo VCPKG_DISABLE_METRICS=1 >> $GITHUB_ENV
           echo VCPKG_DEFAULT_TRIPLET=${{ matrix.target.vcpkg_triplet }} >> $GITHUB_ENV
           echo VCPKG_OVERLAY_TRIPLETS=vcpkg_triplets >> $GITHUB_ENV
@@ -452,6 +452,23 @@ jobs:
           PY="$(command -v python3 || command -v python)"
           "$PY" -m pip install clang==21.1.7
           echo "PYTHON=$PY" >> "$GITHUB_ENV"
+
+      - name: Install CUDA toolkit + cuDNN (x64-linux, for onnxruntime[cuda])
+        if: matrix.target.vcpkg_triplet == 'x64-linux'
+        shell: bash
+        run: |
+          set -e
+          # onnxruntime 1.23.2 supports CUDA 12.x with cuDNN 8/9. The vcpkg
+          # cuda/cudnn ports only *verify* a system installation, so install
+          # both from NVIDIA's apt repo on the runner.
+          wget -qO /tmp/cuda-keyring.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i /tmp/cuda-keyring.deb
+          sudo apt-get update
+          sudo apt-get install -y cuda-toolkit-12-8 libcudnn9-dev-cuda-12
+          echo "CUDA_PATH=/usr/local/cuda-12.8" >> "$GITHUB_ENV"
+          echo "/usr/local/cuda-12.8/bin" >> "$GITHUB_PATH"
+          export PATH=/usr/local/cuda-12.8/bin:$PATH
+          nvcc --version
 
       - name: Build with vcpkg
         shell: bash
@@ -506,7 +523,7 @@ jobs:
             exit 1
           fi
           echo -e "Copying the following files to the addon folder...\n$files"
-          cp -f $files demo/addons/OpenCASCADE.gd/
+          cp -f $files demo/addons/onnxruntime.gd/
 
       - name: Upload addon artifact
         uses: actions/upload-artifact@v7
@@ -589,7 +606,7 @@ jobs:
         run: |
           set -e
           mkdir -p addon-export/addons
-          for addon in demo/addons/OpenCASCADE.gd; do
+          for addon in demo/addons/onnxruntime.gd; do
             cp -r "$addon" addon-export/addons/
             cp LICENSE "addon-export/addons/$(basename "$addon")/"
           done

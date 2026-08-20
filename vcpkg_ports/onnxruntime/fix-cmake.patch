@@ -35,6 +35,19 @@ index 15f3105..af6609b 100644
 -            FRAMEWORK DESTINATION ${CMAKE_INSTALL_BINDIR})
 +            FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR})
  endif()
+diff --git a/cmake/onnxruntime.cmake b/cmake/onnxruntime.cmake
+index 010696a..078725b 100644
+--- a/cmake/onnxruntime.cmake
++++ b/cmake/onnxruntime.cmake
+@@ -312,7 +312,7 @@ install(TARGETS onnxruntime
+         ARCHIVE   DESTINATION ${CMAKE_INSTALL_LIBDIR}
+         LIBRARY   DESTINATION ${CMAKE_INSTALL_LIBDIR}
+         RUNTIME   DESTINATION ${CMAKE_INSTALL_BINDIR}
+-        FRAMEWORK DESTINATION ${CMAKE_INSTALL_BINDIR})
++        FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR})
+ 
+ 
+ if (WIN32 AND NOT CMAKE_CXX_STANDARD_LIBRARIES MATCHES kernel32.lib)
 diff --git a/cmake/onnxruntime_webassembly.cmake b/cmake/onnxruntime_webassembly.cmake
 index ffe8661..318b84f 100644
 --- a/cmake/onnxruntime_webassembly.cmake

@@ -17,6 +17,7 @@ vcpkg_from_github(
         fix-cmake-cuda.patch
         fix-missing-cstdint.patch
         fix-cmake-mlas.patch
+        fix-cmake-kleidiai-export.patch # exported config find_dependency(KleidiAI) for arm64 static builds
 )
 
 vcpkg_replace_string("${SOURCE_PATH}/cmake/CMakeLists.txt" "set(CMAKE_CXX_STANDARD 17)" "set(CMAKE_CXX_STANDARD 20)")

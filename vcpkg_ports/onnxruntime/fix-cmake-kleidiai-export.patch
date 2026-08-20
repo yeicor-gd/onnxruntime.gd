@@ -1,0 +1,14 @@
+diff --git a/cmake/CMakeLists.txt b/cmake/CMakeLists.txt
+index e6a4751091..b94b1d5c1e 100644
+--- a/cmake/CMakeLists.txt
++++ b/cmake/CMakeLists.txt
+@@ -1749,6 +1749,9 @@
+         find_dependency(flatbuffers)\n\
+         find_dependency(cpuinfo)\n\
+         find_dependency(protobuf)\n\
++        if(onnxruntime_USE_KLEIDIAI)\n\
++        find_dependency(KleidiAI)\n\
++        endif()\n\
+         find_dependency(Boost COMPONENTS mp11)\n\
+         find_dependency(Microsoft.GSL 4.0)\n\
+         if(NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL \"Android\")\n\
