@@ -19,7 +19,10 @@
       "name": "boost-mp11",
       "version>=": "1.82.0"
     },
-    "cpuinfo",
+    {
+      "name": "cpuinfo",
+      "platform": "!osx"
+    },
     "cxxopts",
     "date",
     "dlpack",

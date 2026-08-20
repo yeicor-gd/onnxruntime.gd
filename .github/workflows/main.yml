@@ -323,6 +323,23 @@ jobs:
         with:
           version: ${{ needs.read-versions.outputs.mingw_version }}
 
+      - name: Setup MinGW for Windows ARM64 (LLVM-MinGW)
+        if: matrix.target.os == 'windows-2025-vs2026' && matrix.target.vcpkg_triplet == 'arm64-mingw-static'
+        shell: pwsh
+        run: |
+          # egor-tensin/setup-mingw (winlibs) only ships x86_64/i686 targets, so
+          # vcpkg's mingw.cmake cannot find aarch64-w64-mingw32-gcc. Provision a
+          # real aarch64 cross toolchain from LLVM-MinGW (Windows x86_64 host
+          # build that contains all MinGW targets) and put its bin/ on PATH.
+          $version = "20260616"
+          $url = "https://github.com/mstorsjo/llvm-mingw/releases/download/$version/llvm-mingw-$version-ucrt-x86_64.zip"
+          $zip = "$env:RUNNER_TEMP\llvm-mingw.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\llvm-mingw" -Force
+          $bin = "$env:RUNNER_TEMP\llvm-mingw\llvm-mingw-$version-ucrt-x86_64\bin"
+          Add-Content -Path $env:GITHUB_PATH -Value $bin
+          & "$bin\aarch64-w64-mingw32-gcc.exe" --version
+
       - name: Install build tools (macOS)
         if: matrix.target.os == 'macos-15'
         shell: bash
