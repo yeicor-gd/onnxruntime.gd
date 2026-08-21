@@ -19,7 +19,7 @@
     },
     {
       "name": "onnxruntime",
-      "platform": "arm64",
+      "platform": "arm64 & !windows",
       "features": [
         "kleidiai"
       ]

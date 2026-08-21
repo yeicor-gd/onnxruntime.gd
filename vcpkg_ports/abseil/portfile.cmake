@@ -9,7 +9,7 @@ vcpkg_from_github(
     SHA512 27e2db9269aff1c114c3fd26e501fcc186678102326f580a81c4c04392175523eb13967ffa36a43acfdf92498377d80d849558cf0c341fae1f83e677ab87a08e
     HEAD_REF master
     PATCHES 
-        003-force-cxx-17.patch
+        003-force-cxx-20.patch
         fix-gcc13-constexpr-function-pointer.patch
         fix-gcc16-cuda.patch
         fix-mingw-time-zone.patch
@@ -37,6 +37,7 @@ endif()
 vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}"
     OPTIONS
+        -DCMAKE_CXX_STANDARD=20
         -DABSL_PROPAGATE_CXX_STD=ON
         -DABSL_BUILD_TESTING=OFF 
         -DABSL_BUILD_TEST_HELPERS=OFF
