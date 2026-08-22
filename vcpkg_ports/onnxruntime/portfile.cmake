@@ -158,6 +158,10 @@ endfunction()
 reolocate_ort_providers()
 vcpkg_copy_pdbs()
 
+if(EXISTS "${CURRENT_PACKAGES_DIR}/lib/onnxruntime.framework/Headers")
+    file(COPY "${CURRENT_PACKAGES_DIR}/lib/onnxruntime.framework/Headers/" DESTINATION "${CURRENT_PACKAGES_DIR}/include/onnxruntime")
+endif()
+
 file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")
 if(VCPKG_LIBRARY_LINKAGE STREQUAL "static")
     file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/bin" "${CURRENT_PACKAGES_DIR}/bin")

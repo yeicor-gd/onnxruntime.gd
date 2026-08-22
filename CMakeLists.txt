@@ -235,8 +235,8 @@ else()
 endif()
 
 
-target_include_directories(${PROJECT_NAME} PRIVATE src)
-find_path(ONNXRUNTIME_INCLUDE_DIR NAMES onnxruntime_cxx_api.h PATH_SUFFIXES onnxruntime onnxruntime/core/session)
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+find_path(ONNXRUNTIME_INCLUDE_DIR NAMES onnxruntime_cxx_api.h PATH_SUFFIXES onnxruntime onnxruntime/core/session onnxruntime.framework/Headers)
 find_path(ONNXRUNTIME_BASE_INCLUDE_DIR NAMES onnxruntime/core/session/onnxruntime_cxx_api.h)
 if(ONNXRUNTIME_INCLUDE_DIR)
   target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${ONNXRUNTIME_INCLUDE_DIR})
@@ -248,12 +248,28 @@ if(ONNXRUNTIME_BASE_INCLUDE_DIR)
     "${ONNXRUNTIME_BASE_INCLUDE_DIR}/onnxruntime/core/session"
   )
 endif()
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE src/autowrapper)
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/autowrapper")
 get_target_property(GODOTCPP_INCLUDES godot-cpp INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${GODOTCPP_INCLUDES})
 
 # Define NOMINMAX and WIN32_LEAN_AND_MEAN to prevent windows.h macro collisions
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+
+if(MSVC)
+  find_program(LLD_LINK_EXE NAMES lld-link lld-link.exe PATHS "C:/Program Files/LLVM/bin" "$ENV{LLVM_PATH}/bin")
+  if(LLD_LINK_EXE)
+    message(STATUS "MSVC: Using lld-link for faster and low-memory linking: ${LLD_LINK_EXE}")
+    set(CMAKE_LINKER "${LLD_LINK_EXE}")
+    set(CMAKE_LINKER_TYPE LLD)
+  endif()
+  target_link_options(${PROJECT_NAME} PRIVATE
+    "/INCREMENTAL:NO"
+    "/OPT:REF"
+    $<$<CONFIG:Release>:/OPT:ICF>
+    $<$<CONFIG:Release>:/DEBUG:NONE>
+    $<$<CONFIG:Debug>:/DEBUG:FASTLINK>
+  )
+endif()
 
 # Force-include the exception guard header for all generated and handwritten TUs
 if(MSVC)
@@ -262,6 +278,7 @@ if(MSVC)
     "/utf-8"
     "/wd4828"
     "/bigobj"
+    "/Z7"
   )
 else()
   target_compile_options(${PROJECT_NAME} PRIVATE
@@ -270,8 +287,19 @@ else()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  string(REGEX REPLACE "-g[0-9]?" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  string(REGEX REPLACE "-g[0-9]?" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g1 -fno-var-tracking")
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g1 -fno-var-tracking")
   target_compile_options(${PROJECT_NAME} PRIVATE
     "$<$<CONFIG:Debug>:-g1;-fno-var-tracking>"
+  )
+elseif(MSVC)
+  target_compile_options(${PROJECT_NAME} PRIVATE
+    "$<$<CONFIG:Debug>:/Z7;/Zo->"
+  )
+  target_link_options(${PROJECT_NAME} PRIVATE
+    "$<$<CONFIG:Debug>:/DEBUG:FASTLINK>"
   )
 endif()
 
@@ -357,17 +385,3 @@ if(ONNXRUNTIME_PROVIDER_LIBS)
   )
 endif()
 
-# Post-build: repair Emscripten wasm validation bugs
-if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  find_program(PYTHON3_EXECUTABLE python3 REQUIRED)
-  add_custom_command(
-    TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E env
-            "DEBUG=$<IF:$<CONFIG:Debug>,1,>"
-            "EMSDK=$ENV{EMSDK}"
-            ${PYTHON3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/repair_wasm.py
-            $<TARGET_FILE_DIR:${PROJECT_NAME}> $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    COMMENT "Repairing and optimizing WASM binary..."
-    VERBATIM
-  )
-endif()

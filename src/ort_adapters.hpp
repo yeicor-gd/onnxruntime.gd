@@ -25,7 +25,7 @@ class OrtMemoryInfo;
 class OrtRunOptions;
 
 class OrtAdapters : public RefCounted {
-    GDCLASS(OrtAdapters, RefCounted);
+    GDCLASS(OrtAdapters, RefCounted)
 
 protected:
     static void _bind_methods();

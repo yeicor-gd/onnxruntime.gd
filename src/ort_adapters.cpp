@@ -65,8 +65,13 @@ Ref<OrtSession> OrtAdapters::create_session(const Ref<OrtEnv> &p_env, const Stri
     try {
         Ort::SessionOptions default_opts;
         const Ort::SessionOptions &opts = p_options.is_valid() ? p_options->_native : default_opts;
+#ifdef _WIN32
+        std::wstring path_str(p_model_path.wide_string().get_data());
+        auto native_sess = std::make_unique<Ort::Session>(p_env->_native, path_str.c_str(), opts);
+#else
         std::string path_str = p_model_path.utf8().get_data();
         auto native_sess = std::make_unique<Ort::Session>(p_env->_native, path_str.c_str(), opts);
+#endif
 
         Ref<OrtSession> res;
         res.instantiate();

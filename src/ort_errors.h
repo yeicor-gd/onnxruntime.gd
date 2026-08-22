@@ -7,7 +7,7 @@
 namespace godot {
 
 class OrtErrors : public RefCounted {
-    GDCLASS(OrtErrors, RefCounted);
+    GDCLASS(OrtErrors, RefCounted)
 
 protected:
     static void _bind_methods();

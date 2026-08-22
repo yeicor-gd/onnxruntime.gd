@@ -78,7 +78,6 @@ jobs:
             demo/addons/*/gdext.gdextension \
             CMakeLists.txt \
             src/*.cpp src/*.h \
-            tools/repair_wasm.py \
             tools/build_godot_web_templates.sh \
             2>/dev/null | sha256sum | cut -d' ' -f1 | head -c 12)
           echo "rebuild_hash=$REBUILD_HASH" >> $GITHUB_OUTPUT
@@ -138,9 +137,9 @@ jobs:
             { vcpkg_triplet: x86-linux, os: ubuntu-24.04 },
             { vcpkg_triplet: arm64-linux, os: ubuntu-24.04-arm },
             { vcpkg_triplet: arm-linux, os: ubuntu-24.04-arm },
-            { vcpkg_triplet: x64-mingw-static, os: windows-2025-vs2026 },
-            { vcpkg_triplet: x86-mingw-static, os: windows-2025-vs2026 },
-            { vcpkg_triplet: arm64-mingw-static, os: windows-2025-vs2026 },
+            { vcpkg_triplet: x64-mingw-static, os: ubuntu-24.04 },
+            { vcpkg_triplet: x86-mingw-static, os: ubuntu-24.04 },
+            { vcpkg_triplet: arm64-mingw-static, os: ubuntu-24.04 },
             { vcpkg_triplet: x64-windows-static, os: windows-2025-vs2026 }, # MSVC instead of mingw
             { vcpkg_triplet: x86-windows-static, os: windows-2025-vs2026 }, # MSVC instead of mingw
             { vcpkg_triplet: arm64-windows-static, os: windows-2025-vs2026 }, # MSVC instead of mingw
@@ -162,12 +161,13 @@ jobs:
     steps:
       - name: Free disk space (Ubuntu)
         if: matrix.target.os == 'ubuntu-24.04' || matrix.target.os == 'ubuntu-24.04-arm'
-        shell: bash
-        run: |
-          set -e
-          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
-          sudo docker builder prune -a
+        uses: endersonmenezes/free-disk-space@v4
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          remove_tool_cache: true
+          remove_swap: false
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -317,28 +317,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y "libx11-dev${arch_selector}" "libgl1-mesa-dev${arch_selector}" "libfontconfig-dev${arch_selector}" "autoconf" "autoconf-archive" "automake" "libtool"
 
-      - name: Setup MinGW (Windows) # MSVC is already set up by default
-        if: matrix.target.os == 'windows-2025-vs2026' && contains(matrix.target.vcpkg_triplet, '-mingw')
-        uses: egor-tensin/setup-mingw@v3
-        with:
-          version: ${{ needs.read-versions.outputs.mingw_version }}
-
-      - name: Setup MinGW for Windows ARM64 (LLVM-MinGW)
-        if: matrix.target.os == 'windows-2025-vs2026' && matrix.target.vcpkg_triplet == 'arm64-mingw-static'
-        shell: pwsh
+      - name: Setup llvm-mingw (Linux cross-compilation for Windows)
+        if: runner.os == 'Linux' && contains(matrix.target.vcpkg_triplet, '-mingw')
+        shell: bash
         run: |
-          # egor-tensin/setup-mingw (winlibs) only ships x86_64/i686 targets, so
-          # vcpkg's mingw.cmake cannot find aarch64-w64-mingw32-gcc. Provision a
-          # real aarch64 cross toolchain from LLVM-MinGW (Windows x86_64 host
-          # build that contains all MinGW targets) and put its bin/ on PATH.
-          $version = "20260616"
-          $url = "https://github.com/mstorsjo/llvm-mingw/releases/download/$version/llvm-mingw-$version-ucrt-x86_64.zip"
-          $zip = "$env:RUNNER_TEMP\llvm-mingw.zip"
-          Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\llvm-mingw" -Force
-          $bin = "$env:RUNNER_TEMP\llvm-mingw\llvm-mingw-$version-ucrt-x86_64\bin"
-          Add-Content -Path $env:GITHUB_PATH -Value $bin
-          & "$bin\aarch64-w64-mingw32-gcc.exe" --version
+          set -e
+          HOST_ARCH="$(uname -m)"
+          case "$HOST_ARCH" in
+            x86_64)  LLVM_MINGW_ARCH="x86_64" ;;
+            aarch64) LLVM_MINGW_ARCH="aarch64" ;;
+            *)       echo "Unsupported host arch: $HOST_ARCH"; exit 1 ;;
+          esac
+          LLVM_MINGW_VERSION="20260616"
+          LLVM_MINGW_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-${LLVM_MINGW_ARCH}.tar.xz"
+          echo "Downloading and setting up llvm-mingw from $LLVM_MINGW_URL..."
+          sudo mkdir -p /opt/llvm-mingw
+          curl -sL "$LLVM_MINGW_URL" | sudo tar -xJ -C /opt/llvm-mingw --strip-components=1
+          echo "/opt/llvm-mingw/bin" >> "$GITHUB_PATH" 
 
       - name: Install build tools (macOS)
         if: matrix.target.os == 'macos-15'
@@ -390,24 +385,23 @@ jobs:
         run: |
           set -e
           mkdir -p "${{ github.workspace }}/ccache"
-          if [ "${{ matrix.target.os }}" = "windows-2025-vs2026" ]; then
-            echo "CCACHE_DIR=${{ github.workspace }}\\ccache" >> $GITHUB_ENV
-          else
-            echo "CCACHE_DIR=${{ github.workspace }}/ccache" >> $GITHUB_ENV
-          fi
+          echo "CCACHE_DIR=${{ github.workspace }}/ccache" >> $GITHUB_ENV
+          echo "CCACHE_BASEDIR=${{ github.workspace }}" >> $GITHUB_ENV
           echo "CCACHE_COMPILERCHECK=content" >> $GITHUB_ENV
-          echo "CCACHE_SLOPPINESS=include_file_mtime,include_file_ctime" >> $GITHUB_ENV
+          echo "CCACHE_SLOPPINESS=include_file_mtime,include_file_ctime,pch_defines,time_macros" >> $GITHUB_ENV
           echo "CCACHE_FILESTATMATCHES=false" >> $GITHUB_ENV
+          echo "CCACHE_MAXSIZE=10G" >> $GITHUB_ENV
           # ---
-          echo "CMAKE_CXX_COMPILER_LAUNCHER=$(command -v ccache)" >> $GITHUB_ENV
-          echo "CMAKE_C_COMPILER_LAUNCHER=$(command -v ccache)" >> $GITHUB_ENV
+          CCACHE_BIN="$(command -v ccache || which ccache)"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            CCACHE_BIN="$(cygpath -m "$CCACHE_BIN")"
+          fi
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=$CCACHE_BIN" >> $GITHUB_ENV
+          echo "CMAKE_C_COMPILER_LAUNCHER=$CCACHE_BIN" >> $GITHUB_ENV
           # ---
           # Determine the number of cores to set VCPKG_MAX_CONCURRENCY and bound memory usage
           if [ "$RUNNER_OS" = "Linux" ]; then
             NCORES=$(nproc)
-            if [ "${{ matrix.target-type }}" = "template_debug" ] && [ "$NCORES" -gt 3 ]; then
-              NCORES=3
-            fi
           elif [ "$RUNNER_OS" = "macOS" ]; then
             NCORES=$(sysctl -n hw.ncpu)
           elif [ "$RUNNER_OS" = "Windows" ]; then
@@ -419,7 +413,7 @@ jobs:
           VCPKG_MAX_CONCURRENCY=$NCORES
           echo "VCPKG_MAX_CONCURRENCY=$VCPKG_MAX_CONCURRENCY" >> $GITHUB_ENV
           # ---
-          echo "VCPKG_KEEP_ENV_VARS=VCPKG_MAX_CONCURRENCY;CCACHE_DIR;CCACHE_COMPILERCHECK;CCACHE_SLOPPINESS;CCACHE_FILESTATMATCHES;CMAKE_CXX_COMPILER_LAUNCHER;CMAKE_C_COMPILER_LAUNCHER;LIBCLANG_LIBRARY_FILE;PYTHON;CUDA_PATH;CUDA_HOME" >> $GITHUB_ENV
+          echo "VCPKG_KEEP_ENV_VARS=VCPKG_MAX_CONCURRENCY;CCACHE_DIR;CCACHE_BASEDIR;CCACHE_COMPILERCHECK;CCACHE_SLOPPINESS;CCACHE_FILESTATMATCHES;CCACHE_MAXSIZE;CMAKE_CXX_COMPILER_LAUNCHER;CMAKE_C_COMPILER_LAUNCHER;LIBCLANG_LIBRARY_FILE;PYTHON;CUDA_PATH;CUDA_HOME" >> $GITHUB_ENV
           echo VCPKG_DISABLE_METRICS=1 >> $GITHUB_ENV
           echo VCPKG_DEFAULT_TRIPLET=${{ matrix.target.vcpkg_triplet }} >> $GITHUB_ENV
           echo VCPKG_OVERLAY_TRIPLETS=vcpkg_triplets >> $GITHUB_ENV
@@ -448,12 +442,13 @@ jobs:
               wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s 22
               sudo apt-get install -y libclang-22-dev # provides /usr/lib/llvm-22/lib/libclang.so
               test -f /usr/lib/llvm-22/lib/libclang.so
-              # The gdext shared library is large enough on AArch64 that GNU ld
-              # (bfd) cannot place the range-extension thunks (R_AARCH64_CALL26
-              # relocation truncated to fit); CMake links it with LLD, which
-              # needs `ld.lld` on PATH (the lld-22 package installs it versioned).
+              # Symlink ld.lld for native and cross-compilers on Linux
               if [ -x /usr/lib/llvm-22/bin/ld.lld ]; then
                 sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/ld.lld
+                sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/arm-linux-gnueabihf-ld.lld
+                sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/i686-linux-gnu-ld.lld
+                sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/x86_64-linux-gnu-ld.lld
+                sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/aarch64-linux-gnu-ld.lld
               fi
               echo "LIBCLANG_LIBRARY_FILE=/usr/lib/llvm-22/lib/libclang.so" >> "$GITHUB_ENV"
               ;;
@@ -464,10 +459,11 @@ jobs:
             Windows)
               winget install --accept-source-agreements --accept-package-agreements -e --id LLVM.LLVM
               echo "LIBCLANG_LIBRARY_FILE=C:\\Program Files\\LLVM\\bin\\libclang.dll" >> "$GITHUB_ENV"
+              echo "LLVM_PATH=C:\\Program Files\\LLVM" >> "$GITHUB_ENV"
               ;;
           esac
           PY="$(command -v python3 || command -v python)"
-          "$PY" -m pip install clang==21.1.7
+          "$PY" -m pip install clang==21.1.7 psutil
           echo "PYTHON=$PY" >> "$GITHUB_ENV"
 
       - name: Install CUDA toolkit + cuDNN (x64-linux, for onnxruntime[cuda])
@@ -495,19 +491,42 @@ jobs:
           echo "${GDEXT_CMAKE_ARGS}" > __GDEXT_CMAKE_ARGS  # Windows needs this workaround?
           vcpkg_exe="vcpkg/vcpkg${{ matrix.target.os == 'windows-2025-vs2026' && '.exe' || '' }}"
           ccache --show-stats --zero-stats -vv
+
+          # Start memory monitor and OOM watchdog in background
+          PY="${PYTHON:-python3}"
+          "$PY" .github/scripts/memory_monitor.py start \
+            --log-file build-monitor.log \
+            --report-file build-oom-report.md \
+            --pid-file build-monitor.pid \
+            --min-avail-mb 750 \
+            --interval 0.25 || true
+
           # Retry on transient download failures (gitlab.freedesktop.org
           # intermittently 502/504s when serving freetype/fontconfig tarballs).
           attempt=1
-          while ! "$vcpkg_exe" install --recurse gdext; do
-            if [ "$attempt" -ge 4 ]; then
-              echo "vcpkg install failed after $attempt attempts" >&2
-              exit 1
+          build_success=false
+          while [ "$attempt" -le 4 ]; do
+            if "$vcpkg_exe" install --recurse gdext; then
+              build_success=true
+              break
+            fi
+            if [ -f build-oom-report.md ]; then
+              echo "::error::vcpkg build stopped by memory watchdog due to critical memory exhaustion!"
+              break
             fi
             echo "vcpkg install attempt $attempt failed (likely a flaky source download); retrying..."
             attempt=$((attempt + 1))
             sleep 60
           done
+
+          # Stop memory monitor
+          "$PY" .github/scripts/memory_monitor.py stop --pid-file build-monitor.pid || true
           ccache --show-stats -vv
+
+          if [ "$build_success" != "true" ]; then
+            echo "vcpkg build failed." >&2
+            exit 1
+          fi
 
       - name: Debug upload generated autowrapper files
         if: "!cancelled()"
@@ -528,6 +547,43 @@ jobs:
           name: debug-autowrapper-${{ matrix.target.os }}-${{ matrix.target.vcpkg_triplet }}
           path: |
             ${{ github.workspace }}/debug-autowrapper
+            ${{ github.workspace }}/.fake-path-to-force-artifact-root
+
+      - name: Collect build and debug logs
+        if: "!cancelled()"
+        shell: bash
+        run: |
+          set +e
+          LOG_DIR="${{ github.workspace }}/debug-logs"
+          mkdir -p "$LOG_DIR"
+
+          # Copy memory monitor logs and reports
+          cp -f build-monitor.log "$LOG_DIR/" 2>/dev/null || true
+          cp -f build-oom-report.md "$LOG_DIR/" 2>/dev/null || true
+
+          # Summarize memory usage to Step Summary if available
+          PY="${PYTHON:-python3}"
+          if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+            "$PY" .github/scripts/memory_monitor.py summarize \
+              --log-file build-monitor.log \
+              --report-file build-oom-report.md \
+              --summary-file "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          fi
+
+          # Collect vcpkg build logs and error files
+          mkdir -p "$LOG_DIR/vcpkg-logs"
+          find vcpkg/buildtrees/ -type f \( -name "*.log" -o -name "error-*.log" -o -name "CMakeOutput.log" -o -name "CMakeError.log" -o -name ".ninja_log" \) -exec cp --parents {} "$LOG_DIR/vcpkg-logs/" \; 2>/dev/null || true
+
+          # Also copy any .ninja_log from build trees
+          find . -maxdepth 5 -name ".ninja_log" -exec cp {} "$LOG_DIR/" \; 2>/dev/null || true
+
+      - name: Upload build and debug logs
+        if: "!cancelled()"
+        uses: actions/upload-artifact@v7
+        with:
+          name: debug-logs-${{ matrix.target.os }}-${{ matrix.target.vcpkg_triplet }}-${{ matrix.target-type }}-${{ matrix.float-precision }}
+          path: |
+            ${{ github.workspace }}/debug-logs
             ${{ github.workspace }}/.fake-path-to-force-artifact-root
 
       - name: Copy to addon folder

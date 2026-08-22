@@ -1,8 +1,6 @@
-diff --git a/cmake/adjust_global_compile_flags.cmake b/cmake/adjust_global_compile_flags.cmake
-index 6d51700..cd82cbe 100644
 --- a/cmake/adjust_global_compile_flags.cmake
 +++ b/cmake/adjust_global_compile_flags.cmake
-@@ -45,7 +45,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+@@ -45,7 +45,7 @@
      string(APPEND CMAKE_CXX_FLAGS " -msimd128")
    endif()
  
@@ -11,45 +9,44 @@ index 6d51700..cd82cbe 100644
      string(APPEND CMAKE_C_FLAGS " -s DISABLE_EXCEPTION_CATCHING=0")
      string(APPEND CMAKE_CXX_FLAGS " -s DISABLE_EXCEPTION_CATCHING=0")
    endif()
-diff --git a/cmake/external/abseil-cpp.cmake b/cmake/external/abseil-cpp.cmake
-index eede60a..185cbaf 100644
 --- a/cmake/external/abseil-cpp.cmake
 +++ b/cmake/external/abseil-cpp.cmake
-@@ -122,7 +122,7 @@ absl::absl_check
+@@ -122,7 +122,7 @@
  absl::hash_function_defaults
  absl::function_ref
  absl::city
--absl::low_level_hash
-+# absl::low_level_hash
+-# absl::low_level_hash # abseil 20250814.1+
++# # absl::low_level_hash # abseil 20250814.1+
  absl::fixed_array
  absl::variant
  absl::meta
-diff --git a/cmake/onnxruntime_framework.cmake b/cmake/onnxruntime_framework.cmake
-index 15f3105..af6609b 100644
---- a/cmake/onnxruntime_framework.cmake
-+++ b/cmake/onnxruntime_framework.cmake
-@@ -122,5 +122,5 @@ else()
-             ARCHIVE   DESTINATION ${CMAKE_INSTALL_LIBDIR}
-             LIBRARY   DESTINATION ${CMAKE_INSTALL_LIBDIR}
-             RUNTIME   DESTINATION ${CMAKE_INSTALL_BINDIR}
--            FRAMEWORK DESTINATION ${CMAKE_INSTALL_BINDIR})
-+            FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR})
- endif()
- diff --git a/cmake/onnxruntime.cmake b/cmake/onnxruntime.cmake
-index 010696a..078725b 100644
 --- a/cmake/onnxruntime.cmake
 +++ b/cmake/onnxruntime.cmake
-@@ -282,3 +282,3 @@
+@@ -76,7 +76,7 @@
+ 
+   add_custom_target(onnxruntime_generate_def ALL DEPENDS ${SYMBOL_FILE} ${CMAKE_CURRENT_BINARY_DIR}/generated_source.c)
+   endif()
+-  if(WIN32)
++  if(WIN32 AND onnxruntime_BUILD_SHARED_LIB)
+     onnxruntime_add_shared_library(onnxruntime
+       ${SYMBOL_FILE}
+       "${ONNXRUNTIME_ROOT}/core/dll/dllmain.cc"
+@@ -279,7 +279,7 @@
+   )
+ endif()
+ 
 -if(WIN32)
 +if(WIN32 AND onnxruntime_BUILD_SHARED_LIB)
    target_link_options(onnxruntime PRIVATE ${onnxruntime_DELAYLOAD_FLAGS})
  endif()
-@@ -312,13 +312,13 @@ install(TARGETS onnxruntime
+ #See: https://cmake.org/cmake/help/latest/prop_tgt/SOVERSION.html
+@@ -312,10 +312,11 @@
          ARCHIVE   DESTINATION ${CMAKE_INSTALL_LIBDIR}
          LIBRARY   DESTINATION ${CMAKE_INSTALL_LIBDIR}
          RUNTIME   DESTINATION ${CMAKE_INSTALL_BINDIR}
 -        FRAMEWORK DESTINATION ${CMAKE_INSTALL_BINDIR})
 +        FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR})
++install(FILES ${ONNXRUNTIME_PUBLIC_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/onnxruntime)
  
  
 -if (WIN32 AND NOT CMAKE_CXX_STANDARD_LIBRARIES MATCHES kernel32.lib)
@@ -57,15 +54,9 @@ index 010696a..078725b 100644
    # Workaround STL bug https://github.com/microsoft/STL/issues/434#issuecomment-921321254
    # Note that the workaround makes std::system_error crash before Windows 10
  
-   # The linker warns "LNK4199: /DELAYLOAD:api-ms-win-core-heapl2-1-0.dll ignored; no imports found from api-ms-win-core-heapl2-1-0.dll"
-   # when you're not using imports directly, even though the import exists in the STL and the DLL would have been linked without DELAYLOAD
-   target_link_options(onnxruntime PRIVATE /DELAYLOAD:api-ms-win-core-heapl2-1-0.dll /ignore:4199)
- endif()
-diff --git a/cmake/onnxruntime_mlas.cmake b/cmake/onnxruntime_mlas.cmake
-index 3530ab0..c3292cb 100644
 --- a/cmake/onnxruntime_mlas.cmake
 +++ b/cmake/onnxruntime_mlas.cmake
-@@ -791,7 +791,7 @@ if (WIN32)
+@@ -782,7 +782,7 @@
  endif()
  
  if (NOT onnxruntime_BUILD_SHARED_LIB)
@@ -74,20 +65,18 @@ index 3530ab0..c3292cb 100644
              ARCHIVE   DESTINATION ${CMAKE_INSTALL_LIBDIR}
              LIBRARY   DESTINATION ${CMAKE_INSTALL_LIBDIR}
              RUNTIME   DESTINATION ${CMAKE_INSTALL_BINDIR}
-diff --git a/cmake/onnxruntime_webassembly.cmake b/cmake/onnxruntime_webassembly.cmake
-index ffe8661..318b84f 100644
 --- a/cmake/onnxruntime_webassembly.cmake
 +++ b/cmake/onnxruntime_webassembly.cmake
-@@ -94,7 +94,7 @@ if (NOT onnxruntime_ENABLE_WEBASSEMBLY_THREADS)
+@@ -94,7 +94,7 @@
    )
  
    # Override re2 compiler options to remove -pthread
--  set_property(TARGET re2 PROPERTY COMPILE_OPTIONS )
-+  # set_property(TARGET re2 PROPERTY COMPILE_OPTIONS )
+-  # set_property(TARGET re2 PROPERTY COMPILE_OPTIONS )
++  # # set_property(TARGET re2 PROPERTY COMPILE_OPTIONS )
  endif()
  
  if (NOT onnxruntime_USE_VCPKG)
-@@ -305,7 +305,7 @@ else()
+@@ -305,7 +305,7 @@
            #       However, it may be very slow.
            # "SHELL:-s ASSERTIONS=2"
            "SHELL:-s ASSERTIONS=1"
@@ -96,11 +85,10 @@ index ffe8661..318b84f 100644
            "SHELL:-s STACK_OVERFLOW_CHECK=2"
          )
      endif()
-@@ -325,8 +325,9 @@ else()
-     endif()
+@@ -326,7 +326,9 @@
    endif()
  
--  # Set link flag to enable exceptions support, this will override default disabling exception throwing behavior when disable exceptions.
+   # Set link flag to enable exceptions support, this will override default disabling exception throwing behavior when disable exceptions.
 -  target_link_options(onnxruntime_webassembly PRIVATE "SHELL:-s DISABLE_EXCEPTION_THROWING=0")
 +  if (NOT CMAKE_CXX_FLAGS MATCHES "-fwasm-exceptions")
 +    target_link_options(onnxruntime_webassembly PRIVATE "SHELL:-s DISABLE_EXCEPTION_THROWING=0")
@@ -108,11 +96,9 @@ index ffe8661..318b84f 100644
  
    if (onnxruntime_ENABLE_WEBASSEMBLY_PROFILING)
      target_link_options(onnxruntime_webassembly PRIVATE --profiling --profiling-funcs)
-diff --git a/onnxruntime/core/session/utils.cc b/onnxruntime/core/session/utils.cc
-index a1b2c3d..e4f5a6b 100644
 --- a/onnxruntime/core/session/utils.cc
 +++ b/onnxruntime/core/session/utils.cc
-@@ -415,7 +415,7 @@ Status LoadPluginOrProviderBridge(const std::string& registration_name,
+@@ -415,7 +415,7 @@
                                                              true,
                                                              ProviderLibraryPathType::Absolute);
    bool is_provider_bridge = provider_library->Load() == Status::OK();  // library has GetProvider
