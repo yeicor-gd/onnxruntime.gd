@@ -1,5 +1,13 @@
 include("triplets/community/wasm32-emscripten.cmake")
 
+# ── CUSTOM: position-independent, pthread-ready dependency code ─────────
+# Required for SIDE_MODULE builds: all dependencies must be compiled as
+# position-independent code and link against the pthread emulation that
+# the Godot main module provides.
+set(VCPKG_C_FLAGS "-fPIC -pthread")
+set(VCPKG_CXX_FLAGS "-fPIC -pthread")
+set(VCPKG_LINKER_FLAGS "-fPIC -pthread")
+
 # ── CUSTOM: propagate CFLAGS/CXXFLAGS to all vcpkg port builds ──────────
 #
 # The vcpkg binary evaluates the overlay triplet and passes only *standard*

@@ -13,6 +13,9 @@ vcpkg_from_github(
         fix-gcc13-constexpr-function-pointer.patch
         fix-gcc16-cuda.patch
         fix-mingw-time-zone.patch
+        # Defines ____FIReference_1_boolean_INTERFACE_DEFINED__ on MinGW, see
+        # https://github.com/pywinrt/pywinrt/pull/83 for the FIReference issue.
+        fix-mingw-fireference.patch
 )
 
 
@@ -27,8 +30,7 @@ if(VCPKG_TARGET_IS_MINGW)
     # a cross-compile setup.
     # See https://github.com/pywinrt/pywinrt/pull/83 for the FIReference
     # definition issue.
-    set(ABSL_MINGW_OPTIONS "-DLIBRT=LIBRT-NOTFOUND"
-        "-DCMAKE_CXX_FLAGS=-D____FIReference_1_boolean_INTERFACE_DEFINED__")
+    set(ABSL_MINGW_OPTIONS "-DLIBRT=LIBRT-NOTFOUND")
     # Specify ABSL_BUILD_MONOLITHIC_SHARED_LIBS=ON when VCPKG_LIBRARY_LINKAGE is dynamic to match Abseil's Windows (MSVC) defaults
     if(VCPKG_LIBRARY_LINKAGE STREQUAL dynamic)
         vcpkg_list(APPEND ABSL_MINGW_OPTIONS "-DABSL_BUILD_MONOLITHIC_SHARED_LIBS=ON")

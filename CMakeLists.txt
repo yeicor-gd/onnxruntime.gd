@@ -199,8 +199,12 @@ else()
 endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   target_link_options(${PROJECT_NAME} PRIVATE "-Wl,-z,muldefs")
-elseif(MINGW)
-  target_link_libraries(${PROJECT_NAME} PRIVATE "-Wl,--allow-multiple-definition")
+elseif(MINGW OR WIN32)
+  target_link_libraries(${PROJECT_NAME} PRIVATE "-Wl,--allow-multiple-definition" pathcch dbghelp advapi32 shlwapi bcrypt ws2_32)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+  if(CMAKE_ANDROID_ARCH_ABI STREQUAL "x86" OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86)$" OR VCPKG_TARGET_TRIPLET STREQUAL "x86-android")
+    target_link_options(${PROJECT_NAME} PRIVATE "-Wl,-z,notext")
+  endif()
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux"
@@ -226,12 +230,20 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 # Link godot-cpp and onnxruntime
+if(MINGW)
+  target_link_libraries(${PROJECT_NAME} PRIVATE "-Wl,--start-group")
+endif()
+
 if(TARGET onnxruntime::onnxruntime)
   target_link_libraries(${PROJECT_NAME} PRIVATE godot-cpp onnxruntime::onnxruntime)
 elseif(TARGET onnxruntime)
   target_link_libraries(${PROJECT_NAME} PRIVATE godot-cpp onnxruntime)
 else()
   target_link_libraries(${PROJECT_NAME} PRIVATE godot-cpp ${ONNXRUNTIME_LIBRARIES})
+endif()
+
+if(MINGW)
+  target_link_libraries(${PROJECT_NAME} PRIVATE "-Wl,--end-group")
 endif()
 
 

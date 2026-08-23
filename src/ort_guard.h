@@ -21,6 +21,14 @@
 // Include ONNX Runtime C++ headers
 #include <onnxruntime_cxx_api.h>
 
+#ifdef _WIN32
+#define ORT_PATH_STR(str) (reinterpret_cast<const wchar_t*>((str).wide_string().get_data()))
+#define ORT_TO_GD_STRING(str) (::godot::String(reinterpret_cast<const char16_t*>(str)))
+#else
+#define ORT_PATH_STR(str) ((str).utf8().get_data())
+#define ORT_TO_GD_STRING(str) (::godot::String::utf8(str))
+#endif
+
 namespace ort_gd {
 
 struct LastError {

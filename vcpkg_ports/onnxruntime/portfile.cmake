@@ -99,6 +99,13 @@ endif()
 
 string(COMPARE EQUAL "${VCPKG_LIBRARY_LINKAGE}" "dynamic" BUILD_SHARED)
 
+if(VCPKG_TARGET_IS_EMSCRIPTEN)
+    list(APPEND FEATURE_OPTIONS
+        -Donnxruntime_BUILD_WEBASSEMBLY_STATIC_LIB=ON
+        -Donnxruntime_ENABLE_WEBASSEMBLY_THREADS=ON
+    )
+endif()
+
 # see tools/ci_build/build.py
 vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}/cmake"

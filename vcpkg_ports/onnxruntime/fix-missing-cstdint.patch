@@ -1,7 +1,23 @@
-diff --git a/onnxruntime/core/common/semver.h b/onnxruntime/core/common/semver.h
-index a07c24f016..98bb6a2cef 100644
---- a/onnxruntime/core/common/semver.h
-+++ b/onnxruntime/core/common/semver.h
+diff -ruN a/onnxruntime/core/common/profiler.cc b/onnxruntime/core/common/profiler.cc
+--- a/onnxruntime/core/common/profiler.cc	2025-10-22 01:09:33.000000000 +0200
++++ b/onnxruntime/core/common/profiler.cc	2026-08-23 12:17:42.331989026 +0200
+@@ -1,3 +1,4 @@
++#include <filesystem>
+ // Copyright (c) Microsoft Corporation. All rights reserved.
+ // Licensed under the MIT License.
+ 
+@@ -57,7 +58,7 @@
+ void Profiler::StartProfiling(const std::basic_string<T>& file_name) {
+   enabled_ = true;
+ #if !defined(__wasm__)
+-  profile_stream_.open(file_name, std::ios::out | std::ios::trunc);
++  profile_stream_.open(std::filesystem::path(file_name), std::ios::out | std::ios::trunc);
+ #endif
+   profile_stream_file_ = ToUTF8String(file_name);
+   profiling_start_time_ = std::chrono::high_resolution_clock::now();
+diff -ruN a/onnxruntime/core/common/semver.h b/onnxruntime/core/common/semver.h
+--- a/onnxruntime/core/common/semver.h	2025-10-22 01:09:33.000000000 +0200
++++ b/onnxruntime/core/common/semver.h	2026-08-23 12:17:42.331967545 +0200
 @@ -3,6 +3,7 @@
  
  #pragma once
@@ -10,3 +26,145 @@ index a07c24f016..98bb6a2cef 100644
  #include <optional>
  #include <string_view>
  
+diff -ruN a/onnxruntime/core/session/allocator_adapters.cc b/onnxruntime/core/session/allocator_adapters.cc
+--- a/onnxruntime/core/session/allocator_adapters.cc	2025-10-22 01:09:33.000000000 +0200
++++ b/onnxruntime/core/session/allocator_adapters.cc	2026-08-23 12:17:42.332019354 +0200
+@@ -25,44 +25,47 @@
+ constexpr uint32_t kOrtAllocatorAllocOnStreamMinVersion = 23;
+ }  // namespace
+ 
++namespace {
++void* ORT_API_CALL WrapAlloc(OrtAllocator* this_, size_t size) {
++  return static_cast<OrtAllocatorImplWrappingIAllocator*>(this_)->Alloc(size);
++}
++void ORT_API_CALL WrapFree(OrtAllocator* this_, void* p) {
++  static_cast<OrtAllocatorImplWrappingIAllocator*>(this_)->Free(p);
++}
++const OrtMemoryInfo* ORT_API_CALL WrapInfo(const OrtAllocator* this_) {
++  return static_cast<const OrtAllocatorImplWrappingIAllocator*>(this_)->Info();
++}
++void* ORT_API_CALL WrapReserve(OrtAllocator* this_, size_t size) {
++  return static_cast<OrtAllocatorImplWrappingIAllocator*>(this_)->Reserve(size);
++}
++OrtStatus* ORT_API_CALL WrapGetStats(const OrtAllocator* this_, OrtKeyValuePairs** stats) noexcept {
++  API_IMPL_BEGIN
++  auto kvp = std::make_unique<OrtKeyValuePairs>();
++  const auto& stats_map = static_cast<const OrtAllocatorImplWrappingIAllocator*>(this_)->Stats();
++  kvp->CopyFromMap(std::map<std::string, std::string>(stats_map.begin(), stats_map.end()));
++  *stats = reinterpret_cast<OrtKeyValuePairs*>(kvp.release());
++  return nullptr;
++  API_IMPL_END
++}
++void* ORT_API_CALL WrapAllocOnStream(OrtAllocator* this_, size_t size, OrtSyncStream* stream) {
++  return static_cast<OrtAllocatorImplWrappingIAllocator*>(this_)->AllocOnStream(size, stream);
++}
++}  // namespace
++
+ OrtAllocatorImplWrappingIAllocator::OrtAllocatorImplWrappingIAllocator(onnxruntime::AllocatorPtr&& i_allocator)
+     : i_allocator_(std::move(i_allocator)) {
+   OrtAllocator::version = ORT_API_VERSION;
+-
+-  OrtAllocator::Alloc = [](OrtAllocator* this_, size_t size) {
+-    return static_cast<OrtAllocatorImplWrappingIAllocator*>(this_)->Alloc(size);
+-  };
+-
+-  OrtAllocator::Free = [](OrtAllocator* this_, void* p) {
+-    static_cast<OrtAllocatorImplWrappingIAllocator*>(this_)->Free(p);
+-  };
+-
+-  OrtAllocator::Info = [](const OrtAllocator* this_) {
+-    return static_cast<const OrtAllocatorImplWrappingIAllocator*>(this_)->Info();
+-  };
+-
++  OrtAllocator::Alloc = WrapAlloc;
++  OrtAllocator::Free = WrapFree;
++  OrtAllocator::Info = WrapInfo;
+   if (OrtAllocator::version >= kOrtAllocatorReserveMinVersion) {
+-    OrtAllocator::Reserve = [](OrtAllocator* this_, size_t size) {
+-      return static_cast<OrtAllocatorImplWrappingIAllocator*>(this_)->Reserve(size);
+-    };
++    OrtAllocator::Reserve = WrapReserve;
+   }
+-
+   if (OrtAllocator::version >= kOrtAllocatorStatsMinVersion) {
+-    OrtAllocator::GetStats = [](const OrtAllocator* this_, OrtKeyValuePairs** stats) noexcept -> OrtStatusPtr {
+-      API_IMPL_BEGIN
+-      auto kvp = std::make_unique<OrtKeyValuePairs>();
+-      const auto& stats_map = static_cast<const OrtAllocatorImplWrappingIAllocator*>(this_)->Stats();
+-      kvp->CopyFromMap(std::map<std::string, std::string>(stats_map.begin(), stats_map.end()));
+-      *stats = reinterpret_cast<OrtKeyValuePairs*>(kvp.release());
+-      return nullptr;
+-      API_IMPL_END
+-    };
++    OrtAllocator::GetStats = WrapGetStats;
+   }
+-
+   if (OrtAllocator::version >= kOrtAllocatorAllocOnStreamMinVersion) {
+-    OrtAllocator::AllocOnStream = [](OrtAllocator* this_, size_t size, OrtSyncStream* stream) {
+-      return static_cast<OrtAllocatorImplWrappingIAllocator*>(this_)->AllocOnStream(size, stream);
+-    };
++    OrtAllocator::AllocOnStream = WrapAllocOnStream;
+   }
+ }
+ 
+diff -ruN a/onnxruntime/core/session/default_cpu_allocator_c_api.cc b/onnxruntime/core/session/default_cpu_allocator_c_api.cc
+--- a/onnxruntime/core/session/default_cpu_allocator_c_api.cc	2025-10-22 01:09:33.000000000 +0200
++++ b/onnxruntime/core/session/default_cpu_allocator_c_api.cc	2026-08-23 12:17:42.332040764 +0200
+@@ -10,24 +10,23 @@
+ #include "core/session/ort_apis.h"
+ #include "core/framework/error_code_helper.h"
+ 
++struct OrtDefaultCpuAllocator;
++namespace {
++void* ORT_API_CALL DefAlloc(OrtAllocator* this_, size_t size);
++void ORT_API_CALL DefFree(OrtAllocator* this_, void* p);
++const OrtMemoryInfo* ORT_API_CALL DefInfo(const OrtAllocator* this_);
++void* ORT_API_CALL DefReserve(OrtAllocator* this_, size_t size);
++OrtStatus* ORT_API_CALL DefGetStats(const OrtAllocator* /*this_*/, OrtKeyValuePairs** stats) noexcept;
++}
++
+ struct OrtDefaultCpuAllocator : onnxruntime::OrtAllocatorImpl {
+   OrtDefaultCpuAllocator() {
+     OrtAllocator::version = ORT_API_VERSION;
+-    OrtAllocator::Alloc =
+-        [](OrtAllocator* this_, size_t size) { return static_cast<OrtDefaultCpuAllocator*>(this_)->Alloc(size); };
+-    OrtAllocator::Free =
+-        [](OrtAllocator* this_, void* p) { static_cast<OrtDefaultCpuAllocator*>(this_)->Free(p); };
+-    OrtAllocator::Info =
+-        [](const OrtAllocator* this_) { return static_cast<const OrtDefaultCpuAllocator*>(this_)->Info(); };
+-    OrtAllocator::Reserve =
+-        [](OrtAllocator* this_, size_t size) { return static_cast<OrtDefaultCpuAllocator*>(this_)->Alloc(size); };
+-    OrtAllocator::GetStats =
+-        [](const OrtAllocator* /*this_*/, OrtKeyValuePairs** stats) noexcept -> OrtStatusPtr {
+-      // Default allocator does not support stats, return an empty OrtKeyValuePairs.
+-      auto kvp = std::make_unique<OrtKeyValuePairs>();
+-      *stats = reinterpret_cast<OrtKeyValuePairs*>(kvp.release());
+-      return nullptr;
+-    };
++    OrtAllocator::Alloc = DefAlloc;
++    OrtAllocator::Free = DefFree;
++    OrtAllocator::Info = DefInfo;
++    OrtAllocator::Reserve = DefReserve;
++    OrtAllocator::GetStats = DefGetStats;
+     Ort::ThrowOnError(OrtApis::CreateCpuMemoryInfo(OrtDeviceAllocator, OrtMemTypeDefault, &cpu_memory_info));
+   }
+ 
+@@ -50,6 +49,18 @@
+   const size_t alignment_ = MlasGetPreferredBufferAlignment();
+ };
+ 
++namespace {
++void* ORT_API_CALL DefAlloc(OrtAllocator* this_, size_t size) { return static_cast<OrtDefaultCpuAllocator*>(this_)->Alloc(size); }
++void ORT_API_CALL DefFree(OrtAllocator* this_, void* p) { static_cast<OrtDefaultCpuAllocator*>(this_)->Free(p); }
++const OrtMemoryInfo* ORT_API_CALL DefInfo(const OrtAllocator* this_) { return static_cast<const OrtDefaultCpuAllocator*>(this_)->Info(); }
++void* ORT_API_CALL DefReserve(OrtAllocator* this_, size_t size) { return static_cast<OrtDefaultCpuAllocator*>(this_)->Alloc(size); }
++OrtStatus* ORT_API_CALL DefGetStats(const OrtAllocator* /*this_*/, OrtKeyValuePairs** stats) noexcept {
++  auto kvp = std::make_unique<OrtKeyValuePairs>();
++  *stats = reinterpret_cast<OrtKeyValuePairs*>(kvp.release());
++  return nullptr;
++}
++}
++
+ ORT_API_STATUS_IMPL(OrtApis::GetAllocatorWithDefaultOptions, _Outptr_ OrtAllocator** out) {
+   API_IMPL_BEGIN
+   static OrtDefaultCpuAllocator ort_default_cpu_allocator;
