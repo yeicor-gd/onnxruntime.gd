@@ -30,7 +30,24 @@
    # In the future we will add a build option to allow users disabling all API uses from advapi32 because some Windows environments do not have these APIs. For example, some Windows do not have
 --- a/cmake/adjust_global_compile_flags.cmake
 +++ b/cmake/adjust_global_compile_flags.cmake
-@@ -45,7 +45,7 @@
+@@ -13,6 +13,16 @@
+ if (NOT MSVC AND NOT onnxruntime_ENABLE_BITCODE)
+   string(APPEND CMAKE_CXX_FLAGS " -ffunction-sections -fdata-sections")
+   string(APPEND CMAKE_C_FLAGS " -ffunction-sections -fdata-sections")
++endif()
++
++if (NOT MSVC AND (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86?)$" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "X86"))
++  string(APPEND CMAKE_C_FLAGS " -msse2 -mfpmath=sse")
++  string(APPEND CMAKE_CXX_FLAGS " -msse2 -mfpmath=sse")
++endif()
++
++if (MINGW)
++  string(APPEND CMAKE_C_FLAGS " -Wa,-mbig-obj")
++  string(APPEND CMAKE_CXX_FLAGS " -Wa,-mbig-obj")
+ endif()
+ 
+ if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+@@ -45,7 +55,7 @@
      string(APPEND CMAKE_CXX_FLAGS " -msimd128")
    endif()
  
@@ -821,33 +838,6 @@
  // ETW trace logging uses Windows 10 SDK's TraceLoggingProvider.h
  #define ETW_TRACE_LOGGING_SUPPORTED 1
  #endif
-@@ -55,7 +55,7 @@
-  public:
-   using EtwInternalCallback = std::function<void(LPCGUID SourceId, ULONG IsEnabled, UCHAR Level,
-                                                  ULONGLONG MatchAnyKeyword, ULONGLONG MatchAllKeyword,
--                                                 PEVENT_FILTER_DESCRIPTOR FilterData, PVOID CallbackContext)>;
-+                                                 void* FilterData, PVOID CallbackContext)>;
- 
-   // Singleton instance access
-   static EtwRegistrationManager& Instance();
-@@ -89,7 +89,7 @@
-   ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE(EtwRegistrationManager);
- 
-   void InvokeCallbacks(LPCGUID SourceId, ULONG IsEnabled, UCHAR Level, ULONGLONG MatchAnyKeyword,
--                       ULONGLONG MatchAllKeyword, PEVENT_FILTER_DESCRIPTOR FilterData, PVOID CallbackContext);
-+                       ULONGLONG MatchAllKeyword, void* FilterData, PVOID CallbackContext);
- 
-   static void NTAPI ORT_TL_EtwEnableCallback(
-       _In_ LPCGUID SourceId,
-@@ -97,7 +97,7 @@
-       _In_ UCHAR Level,
-       _In_ ULONGLONG MatchAnyKeyword,
-       _In_ ULONGLONG MatchAllKeyword,
--      _In_opt_ PEVENT_FILTER_DESCRIPTOR FilterData,
-+      _In_opt_ void* FilterData,
-       _In_opt_ PVOID CallbackContext);
- 
-   std::vector<const EtwInternalCallback*> callbacks_;
 @@ -116,6 +116,8 @@
  #else
  // ETW is not supported on this platform but should still define a dummy EtwRegistrationManager
@@ -857,15 +847,6 @@
  #include "core/common/logging/severity.h"
  
  namespace onnxruntime {
-@@ -124,7 +126,7 @@
-  public:
-   using EtwInternalCallback = std::function<void(LPCGUID SourceId, ULONG IsEnabled, UCHAR Level,
-                                                  ULONGLONG MatchAnyKeyword, ULONGLONG MatchAllKeyword,
--                                                 PEVENT_FILTER_DESCRIPTOR FilterData, PVOID CallbackContext)>;
-+                                                 void* FilterData, PVOID CallbackContext)>;
- 
-   static EtwRegistrationManager& Instance();
-   static bool SupportsETW();
 --- a/onnxruntime/core/platform/windows/telemetry.cc
 +++ b/onnxruntime/core/platform/windows/telemetry.cc
 @@ -1,3 +1,4 @@

@@ -11,10 +11,10 @@ diff -ruN a/cmake/onnxruntime_mlas.cmake b/cmake/onnxruntime_mlas.cmake
 -    ${MLAS_SRC_DIR}/kleidiai/sgemm_kleidiai.cpp
 -    ${MLAS_SRC_DIR}/kleidiai/convolve_kleidiai.cpp
 -    ${MLAS_SRC_DIR}/kleidiai/qgemm_kleidiai.cpp
-+    /kai_ukernel_interface.cpp
-+    /kleidiai/sgemm_kleidiai.cpp
-+    /kleidiai/convolve_kleidiai.cpp
-+    /kleidiai/qgemm_kleidiai.cpp
++    ${MLAS_SRC_DIR}/kai_ukernel_interface.cpp
++    ${MLAS_SRC_DIR}/kleidiai/sgemm_kleidiai.cpp
++    ${MLAS_SRC_DIR}/kleidiai/convolve_kleidiai.cpp
++    ${MLAS_SRC_DIR}/kleidiai/qgemm_kleidiai.cpp
    )
 -  target_link_libraries(onnxruntime_mlas PRIVATE kleidiai)
 -  list(APPEND onnxruntime_EXTERNAL_LIBRARIES kleidiai)
@@ -34,6 +34,16 @@ diff -ruN a/cmake/onnxruntime_mlas.cmake b/cmake/onnxruntime_mlas.cmake
 diff -ruN a/onnxruntime/core/mlas/lib/mlasi.h b/onnxruntime/core/mlas/lib/mlasi.h
 --- a/onnxruntime/core/mlas/lib/mlasi.h	2025-10-22 01:09:33.000000000 +0200
 +++ b/onnxruntime/core/mlas/lib/mlasi.h	2026-08-23 12:23:46.108758080 +0200
+@@ -46,6 +46,9 @@
+ #endif
+ #include <windows.h>
+ #include <intrin.h>
++#if defined(__arm__) || defined(__aarch64__)
++#include <arm_neon.h>
++#endif
+ #else
+ #if defined(__arm__) || defined(__aarch64__)
+ #include <arm_neon.h>
 @@ -2707,8 +2707,12 @@
  MlasReadTimeStampCounter(void)
  {
