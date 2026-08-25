@@ -444,11 +444,13 @@ jobs:
               test -f /usr/lib/llvm-22/lib/libclang.so
               # Symlink ld.lld for native and cross-compilers on Linux
               if [ -x /usr/lib/llvm-22/bin/ld.lld ]; then
-                sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/ld.lld
-                sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/arm-linux-gnueabihf-ld.lld
-                sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/i686-linux-gnu-ld.lld
-                sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/x86_64-linux-gnu-ld.lld
-                sudo ln -sf /usr/lib/llvm-22/bin/ld.lld /usr/local/bin/aarch64-linux-gnu-ld.lld
+                for p in /usr/local/bin /usr/bin; do
+                  sudo ln -sf /usr/lib/llvm-22/bin/ld.lld "$p/ld.lld"
+                  sudo ln -sf /usr/lib/llvm-22/bin/ld.lld "$p/arm-linux-gnueabihf-ld.lld"
+                  sudo ln -sf /usr/lib/llvm-22/bin/ld.lld "$p/i686-linux-gnu-ld.lld"
+                  sudo ln -sf /usr/lib/llvm-22/bin/ld.lld "$p/x86_64-linux-gnu-ld.lld"
+                  sudo ln -sf /usr/lib/llvm-22/bin/ld.lld "$p/aarch64-linux-gnu-ld.lld"
+                done
               fi
               echo "LIBCLANG_LIBRARY_FILE=/usr/lib/llvm-22/lib/libclang.so" >> "$GITHUB_ENV"
               ;;
@@ -561,9 +563,9 @@ jobs:
           cp -f build-monitor.log "$LOG_DIR/" 2>/dev/null || true
           cp -f build-oom-report.md "$LOG_DIR/" 2>/dev/null || true
 
-          # Summarize memory usage to Step Summary if available
+          # Summarize memory usage to Step Summary on memory exhaustion only
           PY="${PYTHON:-python3}"
-          if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+          if [ -n "$GITHUB_STEP_SUMMARY" ] && [ -f build-oom-report.md ]; then
             "$PY" .github/scripts/memory_monitor.py summarize \
               --log-file build-monitor.log \
               --report-file build-oom-report.md \

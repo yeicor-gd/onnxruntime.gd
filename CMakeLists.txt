@@ -207,14 +207,31 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
   endif()
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux"
-   AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
-  find_program(GDEXT_LLD NAMES ld.lld)
+if(CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
+  find_program(GDEXT_LLD
+    NAMES
+      ld.lld
+      ${CMAKE_CXX_COMPILER_TARGET}-ld.lld
+      arm-linux-gnueabihf-ld.lld
+      i686-linux-gnu-ld.lld
+      x86_64-linux-gnu-ld.lld
+      aarch64-linux-gnu-ld.lld
+    PATHS
+      /usr/lib/llvm-22/bin
+      /usr/lib/llvm-21/bin
+      /usr/lib/llvm-20/bin
+      /usr/lib/llvm-19/bin
+      /usr/lib/llvm-18/bin
+      /usr/local/bin
+      /usr/bin
+    NO_CMAKE_FIND_ROOT_PATH
+  )
   if(GDEXT_LLD)
-    message(STATUS "AArch64 Linux: linking with LLD (${GDEXT_LLD})")
+    message(STATUS "Linux/Android: linking with LLD (${GDEXT_LLD})")
     target_link_options(${PROJECT_NAME} PRIVATE "-fuse-ld=lld")
+    set_property(TARGET ${PROJECT_NAME} PROPERTY LINKER_TYPE LLD)
   else()
-    message(WARNING "AArch64 Linux: LLD not found")
+    message(STATUS "Linux/Android: LLD not found, using default linker")
   endif()
 endif()
 
@@ -268,11 +285,10 @@ target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${GODOTCPP_INCLUDES})
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 
 if(MSVC)
-  find_program(LLD_LINK_EXE NAMES lld-link lld-link.exe PATHS "C:/Program Files/LLVM/bin" "$ENV{LLVM_PATH}/bin")
+  find_program(LLD_LINK_EXE NAMES lld-link lld-link.exe PATHS "C:/Program Files/LLVM/bin" "$ENV{LLVM_PATH}/bin" NO_CMAKE_FIND_ROOT_PATH)
   if(LLD_LINK_EXE)
     message(STATUS "MSVC: Using lld-link for faster and low-memory linking: ${LLD_LINK_EXE}")
-    set(CMAKE_LINKER "${LLD_LINK_EXE}")
-    set(CMAKE_LINKER_TYPE LLD)
+    set_property(TARGET ${PROJECT_NAME} PROPERTY LINKER_TYPE LLD)
   endif()
   target_link_options(${PROJECT_NAME} PRIVATE
     "/INCREMENTAL:NO"

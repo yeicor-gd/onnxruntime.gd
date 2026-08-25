@@ -295,22 +295,25 @@ class Monitor:
             if stats.avail_commit_mb > 0:
                 self.min_avail_commit_seen = min(self.min_avail_commit_seen, stats.avail_commit_mb)
 
-            # Check danger condition
+            # Check danger condition: swap / commit charge is the last resort
             is_critical = False
             reasons = []
-            if stats.avail_phys_mb > 0 and stats.avail_phys_mb < self.min_avail_mb:
-                is_critical = True
-                reasons.append(f"Available Physical RAM is critically low: {stats.avail_phys_mb:.1f}MB < {self.min_avail_mb:.0f}MB")
-            if stats.avail_commit_mb > 0 and stats.avail_commit_mb < self.min_avail_mb:
-                is_critical = True
-                reasons.append(f"Available Commit Charge is critically low: {stats.avail_commit_mb:.1f}MB < {self.min_avail_mb:.0f}MB")
-            min_swap_threshold = min(self.min_avail_mb, 500.0)
-            if stats.total_swap_mb > 0 and stats.avail_swap_mb < min_swap_threshold:
-                is_critical = True
-                reasons.append(f"Available Swap Memory is critically low: {stats.avail_swap_mb:.1f}MB < {min_swap_threshold:.0f}MB (swap exhaustion causes runner lockup)")
-            if stats.avail_swap_mb > 0 and (stats.avail_phys_mb + stats.avail_swap_mb) < self.min_avail_mb:
-                is_critical = True
-                reasons.append(f"Total Available RAM+Swap is critically low: {(stats.avail_phys_mb + stats.avail_swap_mb):.1f}MB < {self.min_avail_mb:.0f}MB")
+            if stats.total_commit_mb > 0:
+                if stats.avail_commit_mb < self.min_avail_mb:
+                    is_critical = True
+                    reasons.append(f"Available Commit Charge is critically low: {stats.avail_commit_mb:.1f}MB < {self.min_avail_mb:.0f}MB")
+            elif stats.total_swap_mb > 0:
+                if (stats.avail_phys_mb + stats.avail_swap_mb) < self.min_avail_mb:
+                    is_critical = True
+                    reasons.append(f"Total Available Memory (RAM+Swap) is critically low: {(stats.avail_phys_mb + stats.avail_swap_mb):.1f}MB < {self.min_avail_mb:.0f}MB")
+                elif stats.avail_swap_mb < min(self.min_avail_mb, 250.0) and stats.avail_phys_mb < self.min_avail_mb:
+                    is_critical = True
+                    reasons.append(f"Both Swap and Physical RAM are critically low: Swap {stats.avail_swap_mb:.1f}MB, RAM {stats.avail_phys_mb:.1f}MB")
+            else:
+                # No swap configured: fall back to physical RAM threshold
+                if stats.avail_phys_mb > 0 and stats.avail_phys_mb < self.min_avail_mb:
+                    is_critical = True
+                    reasons.append(f"Available Physical RAM is critically low (no swap configured): {stats.avail_phys_mb:.1f}MB < {self.min_avail_mb:.0f}MB")
 
             top_procs = get_top_processes(10)
             for p in top_procs:
@@ -366,17 +369,16 @@ class Monitor:
 def write_summary(log_file: Path, summary_file: Path | None, report_file: Path | None) -> None:
     if not summary_file:
         return
-    with open(summary_file, "a", encoding="utf-8") as f:
-        f.write("## 📊 Build Memory & Resource Monitor\n\n")
-        if report_file and report_file.exists():
+    # Only write to Step Summary if an OOM report was generated (i.e. on errors / critical memory exhaustion)
+    if report_file and report_file.exists():
+        with open(summary_file, "a", encoding="utf-8") as f:
+            f.write("## ⚠️ Build Memory & Resource Alert (OOM Safeguard Triggered)\n\n")
             f.write(report_file.read_text(encoding="utf-8") + "\n\n")
-        else:
-            f.write("Build completed without hitting low-memory threshold.\n\n")
-        if log_file.exists():
-            lines = log_file.read_text(encoding="utf-8").splitlines()
-            recent = lines[-25:] if len(lines) > 25 else lines
-            f.write("<details><summary>Recent Memory Monitor Logs (click to expand)</summary>\n\n```text\n")
-            f.write("\n".join(recent) + "\n```\n</details>\n\n")
+            if log_file.exists():
+                lines = log_file.read_text(encoding="utf-8").splitlines()
+                recent = lines[-25:] if len(lines) > 25 else lines
+                f.write("<details><summary>Recent Memory Monitor Logs (click to expand)</summary>\n\n```text\n")
+                f.write("\n".join(recent) + "\n```\n</details>\n\n")
 
 
 def daemon_process_entry(log_file: Path, report_file: Path | None, min_avail_mb: float, interval: float, pid_file: Path) -> None:
