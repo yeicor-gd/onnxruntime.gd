@@ -103,3 +103,16 @@ diff -ruN a/onnxruntime/core/mlas/lib/x86/SgemmKernelAvx.S b/onnxruntime/core/ml
          vmovdqu ymm0,YMMWORD PTR [ebx+ebp*4+8*4]
          cmp     BYTE PTR .LSgemmKernelFrame_ZeroMode[esp],0
          jnz     .LSkipAccumulateMasked8x1Block
+
+diff -ruN a/onnxruntime/core/mlas/lib/activate.cpp b/onnxruntime/core/mlas/lib/activate.cpp
+--- a/onnxruntime/core/mlas/lib/activate.cpp	2025-10-22 01:09:33.000000000 +0200
++++ b/onnxruntime/core/mlas/lib/activate.cpp	2026-08-25 18:00:00.000000000 +0200
+@@ -131,7 +131,7 @@
+         MLAS_FLOAT32X4 ValueTimesAlpha = MlasMultiplyFloat32x4(Value, AlphaBroadcast);
+ 
+ #if defined(MLAS_NEON_INTRINSICS)
+-#if defined(_WIN32)
++#if defined(_MSC_VER) && !defined(__clang__)
+         return vbslq_f32(vcleq_z_f32_ex(Value), ValueTimesAlpha, Value);
+ #else
+         // N.B. Standard NEON headers lack an intrinsic for the "vcle #0" form.
