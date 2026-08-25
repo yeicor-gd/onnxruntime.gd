@@ -44,7 +44,7 @@ diff -ruN a/onnxruntime/core/mlas/lib/mlasi.h b/onnxruntime/core/mlas/lib/mlasi.
  #else
  #if defined(__arm__) || defined(__aarch64__)
  #include <arm_neon.h>
-@@ -1589,7 +1589,7 @@
+@@ -1589,14 +1589,14 @@
  // Define the missing ARM64 NEON intrinsic macros from arm64_neon.h that enable
  // cross-compiler support.
  //
