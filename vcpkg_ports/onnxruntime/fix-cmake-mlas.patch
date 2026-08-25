@@ -44,6 +44,22 @@ diff -ruN a/onnxruntime/core/mlas/lib/mlasi.h b/onnxruntime/core/mlas/lib/mlasi.
  #else
  #if defined(__arm__) || defined(__aarch64__)
  #include <arm_neon.h>
+@@ -1589,7 +1589,7 @@
+ // Define the missing ARM64 NEON intrinsic macros from arm64_neon.h that enable
+ // cross-compiler support.
+ //
+ // Also define additional standard NEON intrinsics using the MSVC aliases.
+ //
+ 
+-#if defined(_M_ARM64)
++#if defined(_M_ARM64) && defined(_MSC_VER) && !defined(__clang__)
+ #ifndef vmaxvq_f32
+ #define vmaxvq_f32(src) neon_fmaxv(src)
+ #endif
+ #ifndef vminvq_f32
+ #define vminvq_f32(src) neon_fminv(src)
+ #endif
+ #endif
 @@ -2707,8 +2707,12 @@
  MlasReadTimeStampCounter(void)
  {
