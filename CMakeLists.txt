@@ -229,7 +229,12 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
   if(GDEXT_LLD)
     message(STATUS "Linux/Android: linking with LLD (${GDEXT_LLD})")
     target_link_options(${PROJECT_NAME} PRIVATE "-fuse-ld=lld")
-    set_property(TARGET ${PROJECT_NAME} PROPERTY LINKER_TYPE LLD)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      # LINKER_TYPE is only supported for Linux/Apple/Windows platforms;
+      # Android cross-builds reject it at generate time, and -fuse-ld above
+      # already selects LLD there.
+      set_property(TARGET ${PROJECT_NAME} PROPERTY LINKER_TYPE LLD)
+    endif()
   else()
     message(STATUS "Linux/Android: LLD not found, using default linker")
   endif()
