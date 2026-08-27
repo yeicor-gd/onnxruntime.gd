@@ -27,7 +27,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project(ONNXRuntime.gd CXX)  # Microsoft ONNX Runtime wrapper for Godot
 
 # Map imported debug dependencies to Release libraries to prevent debug schema assertion in ONNX
-set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
+#set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
 
 # Automatically use ccache or sccache as a compiler launcher when one is available
 find_program(CCACHE_PROGRAM ccache)

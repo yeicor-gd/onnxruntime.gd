@@ -194,6 +194,7 @@ jobs:
 
       - name: Download cached build artifact
         shell: bash
+        if: false
         run: |
           set +e  # Don't fail if cache is not found
           CACHE_ARTIFACT="${{ steps.ccache-artifact.outputs.artifact }}"
