@@ -856,6 +856,14 @@ jobs:
           cp "web-templates/threads/web_${{ matrix.mode }}.zip" "demo/templates/threads/"
           ls -R demo/templates/
 
+      - name: Start adb server (required for Godot shutdown on projects with Android platform)
+        if: matrix.target.os == 'ubuntu-24.04' || matrix.target.os == 'ubuntu-24.04-arm'
+        shell: bash
+        run: |
+          set -e
+          adb start-server
+          adb devices
+
       - name: Export demo
         shell: bash
         run: |
