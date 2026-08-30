@@ -15,25 +15,62 @@ func _ready() -> void:
 
 func _init_ort() -> void:
 	var providers = OrtAdapters.get_available_providers()
+
 	output_text.text = "=== ONNX Runtime for Godot ===\n"
 	output_text.text += "Available Execution Providers:\n"
+
 	for p in providers:
 		output_text.text += "  - " + p + "\n"
+
 	output_text.text += "\n"
 
-	var model_path := ProjectSettings.globalize_path("res://models/test_model.onnx")
-	if not FileAccess.file_exists(model_path):
-		status_label.text = "Model file not found: " + model_path
+	# Load the ONNX model directly from Godot's virtual filesystem.
+	# This works for exported builds, including PCK and Web/WASM exports.
+	var resource_path := "res://models/test_model.onnx"
+
+	if not FileAccess.file_exists(resource_path):
+		status_label.text = "Model file not found: " + resource_path
 		return
 
+	var model_file := FileAccess.open(resource_path, FileAccess.READ)
+	if model_file == null:
+		status_label.text = "Failed to read model: " + resource_path
+		return
+
+	var model_data: PackedByteArray = model_file.get_buffer(model_file.get_length())
+	model_file.close()
+
+	if model_data.is_empty():
+		status_label.text = "Model file is empty: " + resource_path
+		return
+
+	print("Loaded ONNX model into memory: ", model_data.size(), " bytes")
+
 	env = OrtEnv.new()
-	var session_opts = OrtSessionOptions.new()
-	session = OrtAdapters.create_session(env, model_path, session_opts)
+
+	var session_opts := OrtSessionOptions.new()
+
+	# Create the ONNX Runtime session directly from the model bytes.
+	# No temporary filesystem path is required.
+	session = OrtAdapters.create_session_from_memory(
+		env,
+		model_data,
+		session_opts
+	)
+
 	if session != null:
 		var input_names = OrtAdapters.get_input_names(session)
 		var output_names = OrtAdapters.get_output_names(session)
-		status_label.text = "Model loaded successfully! Inputs: " + str(input_names) + ", Outputs: " + str(output_names)
-		output_text.text += "Model loaded: " + model_path + "\n"
+
+		status_label.text = (
+			"Model loaded successfully! Inputs: "
+			+ str(input_names)
+			+ ", Outputs: "
+			+ str(output_names)
+		)
+
+		output_text.text += "Model loaded from memory: " + resource_path + "\n"
+		output_text.text += "Model size: " + str(model_data.size()) + " bytes\n"
 		output_text.text += "Inputs: " + str(input_names) + "\n"
 		output_text.text += "Outputs: " + str(output_names) + "\n\n"
 	else:
