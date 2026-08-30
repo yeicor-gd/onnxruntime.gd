@@ -76,6 +76,7 @@ Ref<OrtSession> OrtAdapters::create_session(const Ref<OrtEnv> &p_env, const Stri
         Ref<OrtSession> res;
         res.instantiate();
         res->_native = std::move(native_sess);
+        res->_env = p_env;
         return res;
     } ORT_GUARD_CATCH(Ref<OrtSession>())
 }
@@ -91,6 +92,7 @@ Ref<OrtSession> OrtAdapters::create_session_from_memory(const Ref<OrtEnv> &p_env
         Ref<OrtSession> res;
         res.instantiate();
         res->_native = std::move(native_sess);
+        res->_env = p_env;
         return res;
     } ORT_GUARD_CATCH(Ref<OrtSession>())
 }
@@ -401,7 +403,7 @@ Dictionary OrtAdapters::run_inference(const Ref<OrtSession> &p_session, const Di
         Array input_keys = p_inputs.keys();
         std::vector<std::string> input_name_strings;
         std::vector<const char*> input_names;
-        std::vector<Ort::Value> input_values;
+        std::vector<const ::OrtValue*> input_values;
 
         input_name_strings.reserve(input_keys.size());
         input_names.reserve(input_keys.size());
@@ -414,7 +416,7 @@ Dictionary OrtAdapters::run_inference(const Ref<OrtSession> &p_session, const Di
 
             Ref<OrtValue> val_ref = p_inputs[name];
             ERR_FAIL_COND_V_MSG(val_ref.is_null() || !val_ref->_native, results, String("Input tensor '{0}' is null or uninitialized").format(Array::make(name)));
-            input_values.push_back(std::move(*val_ref->_native));
+            input_values.push_back(static_cast<const ::OrtValue*>(*val_ref->_native));
         }
 
         // Prepare outputs
@@ -434,20 +436,17 @@ Dictionary OrtAdapters::run_inference(const Ref<OrtSession> &p_session, const Di
         }
 
         const Ort::RunOptions *opt = p_run_options.is_valid() ? &p_run_options->_native : nullptr;
-        std::vector<Ort::Value> output_tensors;
-        if (opt) {
-            output_tensors = p_session->_native->Run(*opt, input_names.data(), input_values.data(), input_values.size(), output_names.data(), output_names.size());
-        } else {
-            Ort::RunOptions default_opts;
-            output_tensors = p_session->_native->Run(default_opts, input_names.data(), input_values.data(), input_values.size(), output_names.data(), output_names.size());
-        }
+        Ort::RunOptions default_opts;
+        const Ort::RunOptions &run_opts = opt ? *opt : default_opts;
 
-        // Re-assign moved input values back to their OrtValue wrappers so they remain valid
-        for (int i = 0; i < input_keys.size(); ++i) {
-            String name = input_keys[i];
-            Ref<OrtValue> val_ref = p_inputs[name];
-            val_ref->_native = std::make_unique<Ort::Value>(std::move(input_values[i]));
+        std::vector<Ort::Value> output_tensors;
+        output_tensors.reserve(output_names.size());
+        for (size_t i = 0; i < output_names.size(); ++i) {
+            output_tensors.emplace_back(nullptr);
         }
+        auto ort_output_values = reinterpret_cast<::OrtValue**>(output_tensors.data());
+
+        Ort::ThrowOnError(Ort::GetApi().Run(*p_session->_native, run_opts, input_names.data(), input_values.data(), input_values.size(), output_names.data(), output_names.size(), ort_output_values));
 
         // Wrap output tensors into Godot OrtValue objects
         for (size_t i = 0; i < output_tensors.size(); ++i) {

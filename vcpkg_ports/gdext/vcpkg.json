@@ -5,20 +5,6 @@
     "onnxruntime",
     {
       "name": "onnxruntime",
-      "platform": "x64 & linux",
-      "features": [
-        "cuda"
-      ]
-    },
-    {
-      "name": "onnxruntime",
-      "platform": "x64 & windows & !static",
-      "features": [
-        "cuda"
-      ]
-    },
-    {
-      "name": "onnxruntime",
       "platform": "arm64 & !windows",
       "features": [
         "kleidiai"
