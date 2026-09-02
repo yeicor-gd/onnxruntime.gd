@@ -359,6 +359,25 @@ if is_editor:
         content = content.replace(old4, new4, 1)
         print("  Applied patch 4 (preloadedWasmModules)", flush=True)
 
+# Patch 5: addEmAsm – fix Firefox-incompatible EM_ASM evaluation.
+# Firefox (and strict-mode engines) have two issues:
+#   a) Dollar-digit identifiers ($0, $1...) are rejected as formal parameter names
+#      (SyntaxError: missing formal parameter). Chrome's V8 accepts them.
+#   b) GNU C statement-expressions compiled as "({ STATEMENTS })" are rejected
+#      as JS expressions. Chrome's V8 accepts them, Firefox/SpiderMonkey does not.
+# The fix: rename $N to _aN in both the arg list and body, and strip the outer
+# "({" / "})" wrapper from the body so statements go directly into the function.
+old5 = 'args.push("$"+arity)}else{break}}args=args.join(",");var func=`(${args}) => { ${body} };`;'
+new5 = 'args.push("_a"+arity)}else{break}}for(var _ai=args.length-1;_ai>=0;_ai--){body=body.replaceAll("$"+_ai,"_a"+_ai)}if(body.startsWith("({")&&body.endsWith("})"))body=body.slice(2,-2).trim();args=args.join(",");var func=`(${args}) => { ${body} };`;'
+if old5 not in content:
+    print("Warning: addEmAsm $N pattern not found", flush=True)
+    failed = True
+elif new5 in content:
+    print("  Patch 5 (addEmAsm Firefox fix) already applied", flush=True)
+else:
+    content = content.replace(old5, new5, 1)
+    print("  Applied patch 5 (addEmAsm $N->_aN + ({}) strip, Firefox fix)", flush=True)
+
 with open(path, 'w') as f:
     f.write(content)
 
@@ -384,6 +403,10 @@ PYEOF
     fi
     if ! grep -q '_flr=' "$js_file"; then
         echo "  Warning: findLibraryFS fallback not found after patching" >&2
+        verify_failed=1
+    fi
+    if ! grep -q '_a0' "$js_file"; then
+        echo "  Warning: addEmAsm Firefox fix (Patch 5) not found after patching" >&2
         verify_failed=1
     fi
     # Only verify editor-specific patches on editor zips
@@ -421,7 +444,7 @@ PYEOF
         echo "  Error: zip repack failed (exit code $zip_rc)" >&2
         return 1
     fi
-    local patches_desc="tag + resolveGlobalSymbol + findLibraryFS"
+    local patches_desc="tag + resolveGlobalSymbol + findLibraryFS + addEmAsm-firefox"
     [ "$is_editor" -eq 1 ] && patches_desc="${patches_desc} + preloadedWasm"
     echo "  Patched $(basename "$zip_path") (${patches_desc})"
 }
