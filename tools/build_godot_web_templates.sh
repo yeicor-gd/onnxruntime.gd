@@ -405,7 +405,7 @@ PYEOF
         echo "  Warning: findLibraryFS fallback not found after patching" >&2
         verify_failed=1
     fi
-    if ! grep -q '_a0' "$js_file"; then
+    if ! grep -q 'var _ai=' "$js_file"; then
         echo "  Warning: addEmAsm Firefox fix (Patch 5) not found after patching" >&2
         verify_failed=1
     fi
