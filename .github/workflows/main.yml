@@ -915,22 +915,13 @@ jobs:
           # Copy service worker to web root
           cp tools/coi-serviceworker.js web/coi-serviceworker.js
 
-          # Inject coi-serviceworker into exported HTML files and patch GODOT_CONFIG
-          # so that Godot's own service-worker install+reload path is used on first visit
-          # (prevents the "missing features" error flash on Chrome before the SW reloads).
+          # Inject coi-serviceworker.js <script> tag into <head> of exported HTML files.
+          # The serviceWorker key in GODOT_CONFIG is set in the demo's export_presets.cfg.
           for html in web/*.html; do
             if [ -f "$html" ]; then
-              # 1. Inject coi-serviceworker.js <script> tag into <head>
               if ! grep -q 'coi-serviceworker.js' "$html"; then
                 sed -i 's|</head>|<script src="coi-serviceworker.js"></script>\n</head>|' "$html"
                 echo "Injected coi-serviceworker into $html"
-              fi
-              # 2. Add "serviceWorker":"coi-serviceworker.js" to GODOT_CONFIG so Godot's
-              #    built-in SW install→reload flow fires instead of the error notice.
-              #    Only patch if not already present.
-              if ! grep -q '"serviceWorker"' "$html"; then
-                sed -i 's|"ensureCrossOriginIsolationHeaders":true|"ensureCrossOriginIsolationHeaders":true,"serviceWorker":"coi-serviceworker.js"|g' "$html"
-                echo "Patched GODOT_CONFIG serviceWorker key in $html"
               fi
             fi
           done
